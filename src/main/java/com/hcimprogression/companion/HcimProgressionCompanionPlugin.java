@@ -31,7 +31,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
 	@Inject
 	private Client client;
-
+	@Inject
+	private HcimProgressionCompanionConfig config;
 	@Inject
 	private ClientToolbar clientToolbar;
 
@@ -92,13 +93,27 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
 		tickCounter++;
 
-		// Update roughly every three seconds.
 		if (tickCounter < 5)
 		{
 			return;
 		}
 
 		tickCounter = 0;
+
+		if (panel != null)
+		{
+			SwingUtilities.invokeLater(() ->
+			{
+				if (config.locationSharingEnabled())
+				{
+					panel.showSharingEnabled();
+				}
+				else
+				{
+					panel.showSharingDisabled();
+				}
+			});
+		}
 
 		PlayerState state = locationService.createPlayerState(client);
 
@@ -110,16 +125,6 @@ public class HcimProgressionCompanionPlugin extends Plugin
 		String playerName = state.getPlayerName() == null
 				? "Unknown"
 				: state.getPlayerName();
-
-		logger.info(
-				"Player: {} | World: {} | X: {} | Y: {} | Plane: {} | Region ID: {}",
-				playerName,
-				state.getWorld(),
-				state.getX(),
-				state.getY(),
-				state.getPlane(),
-				state.getRegionId()
-		);
 
 		if (panel != null)
 		{
