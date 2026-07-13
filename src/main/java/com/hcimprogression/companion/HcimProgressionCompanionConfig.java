@@ -4,14 +4,16 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("hcimprogressioncompanion")
+@ConfigGroup(HcimProgressionCompanionConfig.GROUP)
 public interface HcimProgressionCompanionConfig extends Config
 {
+    String GROUP = "hcimprogressioncompanion";
+
     @ConfigItem(
-            keyName = "locationSharingEnabled",
-            name = "Share location",
-            description = "Securely shares your location with your HCIM Progression group.",
-            position = 0
+        keyName = "locationSharingEnabled",
+        name = "Share location",
+        description = "Securely shares your location with your HCIM Progression group.",
+        position = 0
     )
     default boolean locationSharingEnabled()
     {
@@ -19,14 +21,13 @@ public interface HcimProgressionCompanionConfig extends Config
     }
 
     @ConfigItem(
-            keyName = "connectionKey",
-            name = "Connection key",
-            description = "Paste the private RuneLite connection key shown on the HCIM Progression website.",
-            secret = true,
-            position = 1
+        keyName = "apiBaseUrl",
+        name = "Website API URL",
+        description = "Your HCIM Progression website URL followed by /.netlify/functions",
+        position = 1
     )
-    default String connectionKey()
+    default String apiBaseUrl()
     {
-        return "";
+        return "https://YOUR-SITE.netlify.app/.netlify/functions";
     }
 }
