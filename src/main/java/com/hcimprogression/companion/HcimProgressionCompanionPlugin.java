@@ -1,17 +1,20 @@
 package com.hcimprogression.companion;
 
 import com.google.inject.Provides;
+import java.awt.image.BufferedImage;
 import javax.inject.Inject;
+import javax.swing.SwingUtilities;
 
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.Player;
-import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,18 +32,48 @@ public class HcimProgressionCompanionPlugin extends Plugin
 	@Inject
 	private Client client;
 
-	private int tickCounter;
+	@Inject
+	private ClientToolbar clientToolbar;
 
+	private HcimProgressionCompanionPanel panel;
+	private NavigationButton navigationButton;
+	private int tickCounter;
+	private final LocationService locationService = new LocationService();
 	@Override
 	protected void startUp()
 	{
 		tickCounter = 0;
+
+		panel = new HcimProgressionCompanionPanel();
+
+		BufferedImage icon = ImageUtil.loadImageResource(
+				getClass(),
+				"/hcim-companion-icon.png"
+		);
+
+		navigationButton = NavigationButton.builder()
+				.tooltip("HCIM Progression Companion")
+				.icon(icon)
+				.priority(5)
+				.panel(panel)
+				.build();
+
+		clientToolbar.addNavigation(navigationButton);
+
 		logger.info("HCIM Progression Companion started.");
 	}
 
 	@Override
 	protected void shutDown()
 	{
+		if (navigationButton != null)
+		{
+			clientToolbar.removeNavigation(navigationButton);
+		}
+
+		panel = null;
+		navigationButton = null;
+
 		logger.info("HCIM Progression Companion stopped.");
 	}
 
@@ -49,18 +82,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
 	{
 		if (client.getGameState() != GameState.LOGGED_IN)
 		{
-			return;
-		}
+			if (panel != null)
+			{
+				SwingUtilities.invokeLater(panel::showLoggedOut);
+			}
 
-		Player player = client.getLocalPlayer();
-
-		if (player == null)
-		{
 			return;
 		}
 
 		tickCounter++;
 
+		// Update roughly every three seconds.
 		if (tickCounter < 5)
 		{
 			return;
@@ -68,29 +100,47 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
 		tickCounter = 0;
 
-		WorldPoint location = player.getWorldLocation();
+		PlayerState state = locationService.createPlayerState(client);
 
-		if (location == null)
+		if (state == null)
 		{
 			return;
 		}
 
+		String playerName = state.getPlayerName() == null
+				? "Unknown"
+				: state.getPlayerName();
+
 		logger.info(
 				"Player: {} | World: {} | X: {} | Y: {} | Plane: {} | Region ID: {}",
-				player.getName(),
-				client.getWorld(),
-				location.getX(),
-				location.getY(),
-				location.getPlane(),
-				location.getRegionID()
+				playerName,
+				state.getWorld(),
+				state.getX(),
+				state.getY(),
+				state.getPlane(),
+				state.getRegionId()
 		);
-	}
 
+		if (panel != null)
+		{
+			SwingUtilities.invokeLater(() ->
+					panel.updatePlayerInformation(
+							playerName,
+							state.getWorld(),
+							state.getRegionId(),
+							state.getX(),
+							state.getY(),
+							state.getPlane()
+					)
+			);
+		}
+	}
 	@Provides
 	HcimProgressionCompanionConfig provideConfig(
 			ConfigManager configManager)
 	{
 		return configManager.getConfig(
-				HcimProgressionCompanionConfig.class);
+				HcimProgressionCompanionConfig.class
+		);
 	}
 }
