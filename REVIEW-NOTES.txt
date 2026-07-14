@@ -1,0 +1,14 @@
+Reviewed 2026-07-14.
+
+This plugin source includes:
+- Sync Account Now button and account snapshot support
+- RuneLite ClientThread fix for quest-state reads
+- HTTPS API URL: https://progresspath.netlify.app/.netlify/functions
+- request/response debug logging in SyncService
+- Plugin Hub metadata, README, and BSD license
+
+Run locally:
+  .\gradlew.bat clean build
+  .\gradlew.bat run
+
+The automated build could not run in the review environment because Gradle's download server was unavailable. Website JavaScript syntax checks passed.

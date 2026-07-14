@@ -7,7 +7,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 ## Features
 
 - Automatic quest completion syncing
-- Achievement Diary syncing
+- One-click account snapshot syncing
 - Skill level progression updates
 - Live player location updates
 - Secure per-player connection using a private Dink URL
@@ -19,8 +19,9 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 2. Log into your HCIM Progression account.
 3. Open the **Group** page.
 4. Copy your personal Dink URL.
-5. Paste that URL into the plugin configuration.
-6. Enable synchronization.
+5. Enter the one-time link code in the RuneLite panel.
+6. Click **Sync Account Now** to upload current skills and completed quests.
+7. Enable location sharing if you want the live map.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
@@ -38,4 +39,4 @@ https://progresspath.netlify.app
 
 ## Support
 
-Report bugs or request features through the project's GitHub Issues page.gin
+Report bugs or request features through the project's GitHub Issues page.

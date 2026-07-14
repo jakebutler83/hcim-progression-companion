@@ -3,7 +3,8 @@ package com.hcimprogression.companion;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.GridLayout;
-import java.awt.event.ActionListener;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -16,10 +17,19 @@ import net.runelite.client.ui.PluginPanel;
 
 public class HcimProgressionCompanionPanel extends PluginPanel
 {
+    private static final Color SUCCESS = new Color(104, 211, 145);
+    private static final Color WARNING = new Color(246, 173, 85);
+    private static final Color ERROR = new Color(229, 107, 99);
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
+
     private final JLabel statusValue = new JLabel("Waiting for login");
     private final JLabel sharingValue = new JLabel("Disabled");
     private final JLabel linkValue = new JLabel("Not linked");
-    private final JLabel syncValue = new JLabel("Never");
+    private final JLabel locationSyncValue = new JLabel("Never");
+    private final JLabel accountSyncStatusValue = new JLabel("Never synced");
+    private final JLabel questsUpdatedValue = new JLabel("—");
+    private final JLabel tasksUpdatedValue = new JLabel("—");
+    private final JLabel accountSyncTimeValue = new JLabel("—");
     private final JLabel playerValue = new JLabel("—");
     private final JLabel worldValue = new JLabel("—");
     private final JLabel regionValue = new JLabel("—");
@@ -27,8 +37,9 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel planeValue = new JLabel("—");
     private final JTextField linkCodeField = new JTextField();
     private final JButton connectButton = new JButton("Connect");
+    private final JButton accountSyncButton = new JButton("Sync Account Now");
 
-    public HcimProgressionCompanionPanel(Consumer<String> linkHandler)
+    public HcimProgressionCompanionPanel(Consumer<String> linkHandler, Runnable accountSyncHandler)
     {
         setLayout(new BorderLayout(0, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -52,7 +63,10 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         linkCodeField.setToolTipText("One-time code generated in Website Settings");
         connectButton.addActionListener(e -> {
             String code = linkCodeField.getText().trim();
-            if (!code.isEmpty()) linkHandler.accept(code);
+            if (!code.isEmpty())
+            {
+                linkHandler.accept(code);
+            }
         });
         connectionPanel.add(connectionTitle, BorderLayout.NORTH);
         connectionPanel.add(linkCodeField, BorderLayout.CENTER);
@@ -68,15 +82,34 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         informationPanel.add(createRow("Game status", statusValue));
         informationPanel.add(createRow("Website link", linkValue));
         informationPanel.add(createRow("Location sharing", sharingValue));
-        informationPanel.add(createRow("Last sync", syncValue));
+        informationPanel.add(createRow("Location sync", locationSyncValue));
         informationPanel.add(createRow("Player", playerValue));
         informationPanel.add(createRow("World", worldValue));
         informationPanel.add(createRow("Region ID", regionValue));
         informationPanel.add(createRow("Coordinates", coordinatesValue));
         informationPanel.add(createRow("Plane", planeValue));
 
+        JPanel accountSyncPanel = new JPanel(new GridLayout(0, 1, 0, 8));
+        accountSyncPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        accountSyncPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(74, 145, 92)),
+            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        JLabel accountSyncTitle = new JLabel("Account sync results");
+        accountSyncTitle.setForeground(new Color(133, 214, 151));
+        accountSyncPanel.add(accountSyncTitle);
+        accountSyncPanel.add(createRow("Status", accountSyncStatusValue));
+        accountSyncPanel.add(createRow("Quests processed", questsUpdatedValue));
+        accountSyncPanel.add(createRow("Skill tasks processed", tasksUpdatedValue));
+        accountSyncPanel.add(createRow("Last account sync", accountSyncTimeValue));
+
+        accountSyncButton.setToolTipText("Upload skills and completed quests to your website account");
+        accountSyncButton.addActionListener(e -> accountSyncHandler.run());
+        accountSyncPanel.add(accountSyncButton);
+
         content.add(connectionPanel, BorderLayout.NORTH);
         content.add(informationPanel, BorderLayout.CENTER);
+        content.add(accountSyncPanel, BorderLayout.SOUTH);
         add(title, BorderLayout.NORTH);
         add(content, BorderLayout.CENTER);
     }
@@ -98,7 +131,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     {
         connectButton.setEnabled(!linking);
         linkValue.setText(linking ? "Linking…" : linkValue.getText());
-        linkValue.setForeground(new Color(246, 173, 85));
+        linkValue.setForeground(WARNING);
     }
 
     public void showLinked(String displayName)
@@ -106,39 +139,70 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         connectButton.setEnabled(true);
         linkCodeField.setText("");
         linkValue.setText(displayName == null || displayName.isEmpty() ? "Linked" : displayName);
-        linkValue.setForeground(new Color(104, 211, 145));
+        linkValue.setForeground(SUCCESS);
     }
 
     public void showLinkError(String message)
     {
         connectButton.setEnabled(true);
         linkValue.setText(message == null || message.isEmpty() ? "Link failed" : message);
-        linkValue.setForeground(new Color(229, 107, 99));
+        linkValue.setForeground(ERROR);
     }
 
     public void showUnlinked()
     {
         connectButton.setEnabled(true);
         linkValue.setText("Not linked");
-        linkValue.setForeground(new Color(246, 173, 85));
+        linkValue.setForeground(WARNING);
+    }
+
+    public void setAccountSyncing(boolean syncing)
+    {
+        accountSyncButton.setEnabled(!syncing);
+        accountSyncButton.setText(syncing ? "Syncing…" : "Sync Account Now");
+        if (syncing)
+        {
+            accountSyncStatusValue.setText("Reading account…");
+            accountSyncStatusValue.setForeground(WARNING);
+        }
+    }
+
+    public void showAccountSyncSuccess(int quests, int tasks)
+    {
+        setAccountSyncing(false);
+        accountSyncStatusValue.setText("Synced successfully");
+        accountSyncStatusValue.setForeground(SUCCESS);
+        questsUpdatedValue.setText(String.valueOf(quests));
+        questsUpdatedValue.setForeground(SUCCESS);
+        tasksUpdatedValue.setText(String.valueOf(tasks));
+        tasksUpdatedValue.setForeground(SUCCESS);
+        accountSyncTimeValue.setText(LocalTime.now().format(TIME_FORMAT));
+        accountSyncTimeValue.setForeground(SUCCESS);
+    }
+
+    public void showAccountSyncError(String message)
+    {
+        setAccountSyncing(false);
+        accountSyncStatusValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        accountSyncStatusValue.setForeground(ERROR);
     }
 
     public void showSyncSuccess()
     {
-        syncValue.setText("Just now");
-        syncValue.setForeground(new Color(104, 211, 145));
+        locationSyncValue.setText("Just now");
+        locationSyncValue.setForeground(SUCCESS);
     }
 
     public void showSyncError(String message)
     {
-        syncValue.setText(message == null || message.isEmpty() ? "Failed" : message);
-        syncValue.setForeground(new Color(229, 107, 99));
+        locationSyncValue.setText(message == null || message.isEmpty() ? "Failed" : message);
+        locationSyncValue.setForeground(ERROR);
     }
 
     public void updatePlayerInformation(String player, int world, int regionId, int x, int y, int plane)
     {
         statusValue.setText("Connected");
-        statusValue.setForeground(new Color(104, 211, 145));
+        statusValue.setForeground(SUCCESS);
         playerValue.setText(player);
         worldValue.setText(String.valueOf(world));
         regionValue.setText(String.valueOf(regionId));
@@ -149,7 +213,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     public void showLoggedOut()
     {
         statusValue.setText("Waiting for login");
-        statusValue.setForeground(new Color(246, 173, 85));
+        statusValue.setForeground(WARNING);
         playerValue.setText("—");
         worldValue.setText("—");
         regionValue.setText("—");
@@ -160,12 +224,12 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     public void showSharingEnabled()
     {
         sharingValue.setText("Enabled");
-        sharingValue.setForeground(new Color(104, 211, 145));
+        sharingValue.setForeground(SUCCESS);
     }
 
     public void showSharingDisabled()
     {
         sharingValue.setText("Disabled");
-        sharingValue.setForeground(new Color(246, 173, 85));
+        sharingValue.setForeground(WARNING);
     }
 }

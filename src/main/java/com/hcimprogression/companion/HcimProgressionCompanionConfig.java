@@ -28,6 +28,6 @@ public interface HcimProgressionCompanionConfig extends Config
     )
     default String apiBaseUrl()
     {
-        return "https://YOUR-SITE.netlify.app/.netlify/functions";
+        return "https://progressionpath.netlify.app/.netlify/functions";
     }
 }
