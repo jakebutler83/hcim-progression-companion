@@ -120,6 +120,37 @@ public class SyncService {
 
         quests.append(']');
 
+        StringBuilder clueCounts = new StringBuilder("{");
+        boolean firstClue = true;
+        for (Map.Entry<String, Integer> entry : snapshot.getClueCounts().entrySet()) {
+            if (!firstClue) clueCounts.append(',');
+            firstClue = false;
+            clueCounts.append('"').append(escape(entry.getKey())).append("\":").append(entry.getValue());
+        }
+        clueCounts.append('}');
+
+        StringBuilder collectionLog = new StringBuilder("{");
+        boolean firstLog = true;
+        for (Map.Entry<String, Integer> entry : snapshot.getCollectionLog().entrySet()) {
+            if (!firstLog) collectionLog.append(',');
+            firstLog = false;
+            collectionLog.append('"').append(escape(entry.getKey())).append("\":").append(entry.getValue());
+        }
+        collectionLog.append('}');
+
+        StringBuilder collectionLogItems = new StringBuilder("[");
+        for (int i = 0; i < snapshot.getCollectionLogItems().size(); i++) {
+            AccountSnapshot.CollectionLogItemSnapshot item = snapshot.getCollectionLogItems().get(i);
+            if (i > 0) collectionLogItems.append(',');
+            collectionLogItems.append('{')
+                .append("\"itemId\":").append(item.getItemId()).append(',')
+                .append("\"name\":\"").append(escape(item.getName())).append("\",")
+                .append("\"category\":\"").append(escape(item.getCategory())).append("\",")
+                .append("\"quantity\":").append(item.getQuantity())
+                .append('}');
+        }
+        collectionLogItems.append(']');
+
         String json = "{"
                 + "\"playerName\":\""
                 + escape(snapshot.getPlayerName())
@@ -132,6 +163,12 @@ public class SyncService {
                 + ","
                 + "\"completedQuests\":"
                 + quests
+                + ",\"clueCounts\":"
+                + clueCounts
+                + ",\"collectionLog\":"
+                + collectionLog
+                + ",\"collectionLogItems\":"
+                + collectionLogItems
                 + "}";
 
         post(apiBaseUrl, "companion-account-sync", token, json)

@@ -7,10 +7,11 @@ import net.runelite.api.Player;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
+import net.runelite.api.VarPlayer;
 
 public class AccountSnapshotService
 {
-    public AccountSnapshot createSnapshot(Client client)
+    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService)
     {
         Player player = client.getLocalPlayer();
         if (player == null) return null;
@@ -46,6 +47,9 @@ public class AccountSnapshotService
             }
         }
         snapshot.setCompletedQuests(completed);
+        snapshot.getCollectionLog().put("logged", client.getVarpValue(VarPlayer.CLOG_LOGGED));
+        snapshot.getCollectionLog().put("total", client.getVarpValue(VarPlayer.CLOG_TOTAL));
+        collectionLogCaptureService.applyTo(snapshot);
         return snapshot;
     }
 

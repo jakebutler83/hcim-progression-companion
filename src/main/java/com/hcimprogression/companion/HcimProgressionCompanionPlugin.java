@@ -6,11 +6,19 @@ import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ScriptPostFired;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.hiscore.HiscoreClient;
+import net.runelite.client.hiscore.HiscoreEndpoint;
+import net.runelite.client.hiscore.HiscoreResult;
+import net.runelite.client.hiscore.HiscoreSkill;
+import net.runelite.client.hiscore.Skill;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
@@ -34,9 +42,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Inject private HcimProgressionCompanionConfig config;
     @Inject private ConfigManager configManager;
     @Inject private ClientToolbar clientToolbar;
+    @Inject private ItemManager itemManager;
+    @Inject private HiscoreClient hiscoreClient;
 
     private final LocationService locationService = new LocationService();
     private final AccountSnapshotService accountSnapshotService = new AccountSnapshotService();
+    private final CollectionLogCaptureService collectionLogCaptureService = new CollectionLogCaptureService();
     private final SyncService syncService = new SyncService();
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
@@ -117,7 +128,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     return;
                 }
 
-                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client);
+                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService);
                 if (snapshot == null)
                 {
                     SwingUtilities.invokeLater(() ->
@@ -127,18 +138,33 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     return;
                 }
 
-                syncService.syncAccount(config.apiBaseUrl(), token, snapshot, (result, error) ->
-                    SwingUtilities.invokeLater(() ->
+                // Clue completion totals are not reliably present in Collection Log widgets.
+                // RuneLite itself uses the official hiscores for !clues, so use the same source.
+                hiscoreClient.lookupAsync(snapshot.getPlayerName(), HiscoreEndpoint.NORMAL)
+                    .whenComplete((hiscoreResult, hiscoreError) ->
                     {
-                        if (panel == null) return;
-                        if (error != null || result == null)
+                        if (hiscoreResult != null)
                         {
-                            panel.showAccountSyncError(error == null ? "Account sync failed" : error);
-                            return;
+                            applyHiscoreClueCounts(snapshot, hiscoreResult);
                         }
-                        panel.showAccountSyncSuccess(result.getQuestUpdates(), result.getTaskUpdates());
-                    })
-                );
+                        else
+                        {
+                            logger.warn("Could not fetch clue totals from hiscores; syncing captured data only", hiscoreError);
+                        }
+
+                        syncService.syncAccount(config.apiBaseUrl(), token, snapshot, (result, error) ->
+                            SwingUtilities.invokeLater(() ->
+                            {
+                                if (panel == null) return;
+                                if (error != null || result == null)
+                                {
+                                    panel.showAccountSyncError(error == null ? "Account sync failed" : error);
+                                    return;
+                                }
+                                panel.showAccountSyncSuccess(result.getQuestUpdates(), result.getTaskUpdates());
+                            })
+                        );
+                    });
             }
             catch (RuntimeException error)
             {
@@ -152,6 +178,47 @@ public class HcimProgressionCompanionPlugin extends Plugin
                             ? "Could not read account data" : message);
                     }
                 });
+            }
+        });
+    }
+
+    private void applyHiscoreClueCounts(AccountSnapshot snapshot, HiscoreResult result)
+    {
+        putClueCount(snapshot, "beginner", result.getSkill(HiscoreSkill.CLUE_SCROLL_BEGINNER));
+        putClueCount(snapshot, "easy", result.getSkill(HiscoreSkill.CLUE_SCROLL_EASY));
+        putClueCount(snapshot, "medium", result.getSkill(HiscoreSkill.CLUE_SCROLL_MEDIUM));
+        putClueCount(snapshot, "hard", result.getSkill(HiscoreSkill.CLUE_SCROLL_HARD));
+        putClueCount(snapshot, "elite", result.getSkill(HiscoreSkill.CLUE_SCROLL_ELITE));
+        putClueCount(snapshot, "master", result.getSkill(HiscoreSkill.CLUE_SCROLL_MASTER));
+    }
+
+    private void putClueCount(AccountSnapshot snapshot, String tier, Skill skill)
+    {
+        int count = skill == null ? 0 : skill.getLevel();
+        snapshot.getClueCounts().put(tier, Math.max(0, count));
+    }
+
+    @Subscribe
+    public void onScriptPostFired(ScriptPostFired event)
+    {
+        if (event.getScriptId() != ScriptID.COLLECTION_DRAW_LIST)
+        {
+            return;
+        }
+
+        clientThread.invokeLater(() ->
+        {
+            CollectionLogCaptureService.CaptureResult result =
+                collectionLogCaptureService.captureCurrentPage(client, itemManager);
+            if (result != null && panel != null)
+            {
+                SwingUtilities.invokeLater(() -> panel.showCollectionLogCapture(
+                    result.getPageTitle(),
+                    result.getPageItems(),
+                    result.getTotalPages(),
+                    result.getTotalItems(),
+                    collectionLogCaptureService.getClueCounts()
+                ));
             }
         });
     }

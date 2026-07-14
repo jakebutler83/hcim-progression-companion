@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.GridLayout;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -30,6 +31,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel questsUpdatedValue = new JLabel("—");
     private final JLabel tasksUpdatedValue = new JLabel("—");
     private final JLabel accountSyncTimeValue = new JLabel("—");
+    private final JLabel collectionCaptureValue = new JLabel("Open clue pages");
+    private final JLabel clueCountsValue = new JLabel("—");
     private final JLabel playerValue = new JLabel("—");
     private final JLabel worldValue = new JLabel("—");
     private final JLabel regionValue = new JLabel("—");
@@ -102,8 +105,10 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountSyncPanel.add(createRow("Quests processed", questsUpdatedValue));
         accountSyncPanel.add(createRow("Skill tasks processed", tasksUpdatedValue));
         accountSyncPanel.add(createRow("Last account sync", accountSyncTimeValue));
+        accountSyncPanel.add(createRow("Collection Log", collectionCaptureValue));
+        accountSyncPanel.add(createRow("Clue totals", clueCountsValue));
 
-        accountSyncButton.setToolTipText("Upload skills and completed quests to your website account");
+        accountSyncButton.setToolTipText("Upload skills, quests, captured clue totals, and captured Collection Log items");
         accountSyncButton.addActionListener(e -> accountSyncHandler.run());
         accountSyncPanel.add(accountSyncButton);
 
@@ -185,6 +190,26 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         setAccountSyncing(false);
         accountSyncStatusValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
         accountSyncStatusValue.setForeground(ERROR);
+    }
+
+    public void showCollectionLogCapture(String pageTitle, int pageItems, int totalPages, int totalItems, Map<String, Integer> clueCounts)
+    {
+        collectionCaptureValue.setText(totalPages + " pages / " + totalItems + " items");
+        collectionCaptureValue.setToolTipText("Last captured: " + pageTitle + " (" + pageItems + " obtained items)");
+        collectionCaptureValue.setForeground(SUCCESS);
+
+        StringBuilder counts = new StringBuilder();
+        String[] tiers = {"beginner", "easy", "medium", "hard", "elite", "master"};
+        for (String tier : tiers)
+        {
+            Integer value = clueCounts.get(tier);
+            if (value == null) continue;
+            if (counts.length() > 0) counts.append(" | ");
+            counts.append(Character.toUpperCase(tier.charAt(0))).append(':').append(value);
+        }
+        clueCountsValue.setText(counts.length() == 0 ? "Open each clue page" : counts.toString());
+        clueCountsValue.setToolTipText(counts.toString());
+        clueCountsValue.setForeground(counts.length() == 0 ? WARNING : SUCCESS);
     }
 
     public void showSyncSuccess()
