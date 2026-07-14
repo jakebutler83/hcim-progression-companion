@@ -35,7 +35,7 @@ No account passwords or RuneLite credentials are transmitted.
 
 ## Website
 
-https://progresspath.netlify.app
+https://progressionpath.netlify.app
 
 ## Support
 
