@@ -9,7 +9,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class SyncService {
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -213,9 +215,7 @@ public class SyncService {
 
         HttpRequest request = builder.build();
 
-        System.out.println(
-                "[HCIM Companion] Sending POST to: " + request.uri()
-        );
+        log.debug("Sending POST to: {}", request.uri());
 
         return httpClient
                 .sendAsync(
@@ -224,15 +224,9 @@ public class SyncService {
                 )
                 .thenApply(response ->
                 {
-                    System.out.println(
-                            "[HCIM Companion] Response status: "
-                                    + response.statusCode()
-                    );
+                    log.debug("Response status: {}", response.statusCode());
 
-                    System.out.println(
-                            "[HCIM Companion] Response body: "
-                                    + response.body()
-                    );
+                    log.debug("Response body: {}", response.body());
 
                     if (response.statusCode() < 200
                             || response.statusCode() >= 300) {
