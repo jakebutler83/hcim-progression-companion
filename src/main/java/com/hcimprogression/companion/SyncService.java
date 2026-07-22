@@ -77,6 +77,108 @@ public class SyncService {
                 });
     }
 
+    public void syncSocialPresence(
+            String apiBaseUrl,
+            String token,
+            SocialPresenceSnapshot snapshot,
+            Consumer<String> callback) {
+        StringBuilder equipment = new StringBuilder("{");
+        boolean firstItem = true;
+
+        for (Map.Entry<String, SocialPresenceSnapshot.EquipmentItem> entry
+                : snapshot.getEquipment().entrySet()) {
+            if (!firstItem) {
+                equipment.append(',');
+            }
+            firstItem = false;
+            equipment.append('\"')
+                    .append(escape(entry.getKey()))
+                    .append("\":{")
+                    .append("\"itemId\":")
+                    .append(entry.getValue().getItemId())
+                    .append(',')
+                    .append("\"rawItemId\":")
+                    .append(entry.getValue().getRawItemId())
+                    .append(',')
+                    .append("\"name\":\"")
+                    .append(escape(entry.getValue().getName()))
+                    .append("\"}");
+        }
+        equipment.append('}');
+
+        String json = "{"
+                + "\"playerName\":\"" + escape(snapshot.getPlayerName()) + "\","
+                + "\"world\":" + snapshot.getWorld() + ","
+                + "\"regionId\":" + snapshot.getRegionId() + ","
+                + "\"regionName\":\"" + escape(snapshot.getRegionName()) + "\","
+                + "\"combatLevel\":" + snapshot.getCombatLevel() + ","
+                + "\"activity\":\"" + escape(snapshot.getActivity()) + "\","
+                + "\"inWilderness\":" + snapshot.isInWilderness() + ","
+                + "\"exactLocationIncluded\":" + snapshot.isExactLocationIncluded() + ","
+                + "\"x\":" + snapshot.getX() + ","
+                + "\"y\":" + snapshot.getY() + ","
+                + "\"plane\":" + snapshot.getPlane() + ","
+                + "\"timestamp\":" + snapshot.getTimestamp() + ","
+                + "\"equipment\":" + equipment
+                + "}";
+
+        post(apiBaseUrl, "companion-social-presence-sync", token, json)
+                .whenComplete((body, error) ->
+                {
+                    if (error != null) {
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
+
+
+    public void syncSocialClan(
+            String apiBaseUrl,
+            String token,
+            SocialClanSnapshot snapshot,
+            Consumer<String> callback) {
+        StringBuilder members = new StringBuilder("[");
+        boolean firstMember = true;
+        for (SocialClanSnapshot.ClanMemberSnapshot member : snapshot.getMembers()) {
+            if (!firstMember) {
+                members.append(',');
+            }
+            firstMember = false;
+            members.append('{')
+                    .append("\"name\":\"").append(escape(member.getName())).append("\",")
+                    .append("\"rank\":\"").append(escape(member.getRank())).append("\",")
+                    .append("\"world\":").append(member.getWorld()).append(',')
+                    .append("\"online\":").append(member.isOnline()).append(',')
+                    .append("\"joinDate\":\"").append(escape(member.getJoinDate())).append("\"")
+                    .append('}');
+        }
+        members.append(']');
+
+        String json = "{"
+                + "\"clanName\":\"" + escape(snapshot.getClanName()) + "\","
+                + "\"playerRank\":\"" + escape(snapshot.getPlayerRank()) + "\","
+                + "\"timestamp\":" + snapshot.getTimestamp() + ","
+                + "\"members\":" + members
+                + "}";
+
+        post(apiBaseUrl, "companion-social-clan-sync", token, json)
+                .whenComplete((body, error) ->
+                {
+                    if (error != null) {
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
     public void syncAccount(
             String apiBaseUrl,
             String token,

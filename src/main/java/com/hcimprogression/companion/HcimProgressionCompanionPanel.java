@@ -27,6 +27,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel sharingValue = new JLabel("Disabled");
     private final JLabel linkValue = new JLabel("Not linked");
     private final JLabel locationSyncValue = new JLabel("Never");
+    private final JLabel socialPresenceValue = new JLabel("Waiting");
+    private final JLabel socialRegionValue = new JLabel("—");
+    private final JLabel socialActivityValue = new JLabel("—");
+    private final JLabel socialCombatValue = new JLabel("—");
+    private final JLabel socialGearValue = new JLabel("—");
     private final JLabel accountSyncStatusValue = new JLabel("Never synced");
     private final JLabel questsUpdatedValue = new JLabel("—");
     private final JLabel tasksUpdatedValue = new JLabel("—");
@@ -86,6 +91,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         informationPanel.add(createRow("Website link", linkValue));
         informationPanel.add(createRow("Location sharing", sharingValue));
         informationPanel.add(createRow("Location sync", locationSyncValue));
+        informationPanel.add(createRow("Social Hub presence", socialPresenceValue));
+        informationPanel.add(createRow("Social region", socialRegionValue));
+        informationPanel.add(createRow("Current activity", socialActivityValue));
+        informationPanel.add(createRow("Combat level", socialCombatValue));
+        informationPanel.add(createRow("Worn gear slots", socialGearValue));
         informationPanel.add(createRow("Player", playerValue));
         informationPanel.add(createRow("World", worldValue));
         informationPanel.add(createRow("Region ID", regionValue));
@@ -212,6 +222,35 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         clueCountsValue.setForeground(counts.length() == 0 ? WARNING : SUCCESS);
     }
 
+
+    public void showSocialPresenceSyncing(String region, String activity, int combatLevel, int gearSlots)
+    {
+        socialPresenceValue.setText("Syncing…");
+        socialPresenceValue.setForeground(WARNING);
+        socialRegionValue.setText(region == null || region.isEmpty() ? "Gielinor" : region);
+        socialActivityValue.setText(activity == null || activity.isEmpty() ? "Exploring" : activity);
+        socialCombatValue.setText(String.valueOf(combatLevel));
+        socialGearValue.setText(String.valueOf(gearSlots));
+    }
+
+    public void showSocialPresenceSuccess()
+    {
+        socialPresenceValue.setText("Live");
+        socialPresenceValue.setForeground(SUCCESS);
+    }
+
+    public void showSocialPresenceError(String message)
+    {
+        socialPresenceValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        socialPresenceValue.setForeground(ERROR);
+    }
+
+    public void showSocialPresenceDisabled()
+    {
+        socialPresenceValue.setText("Disabled in settings");
+        socialPresenceValue.setForeground(WARNING);
+    }
+
     public void showSyncSuccess()
     {
         locationSyncValue.setText("Just now");
@@ -244,6 +283,12 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         regionValue.setText("—");
         coordinatesValue.setText("—");
         planeValue.setText("—");
+        socialPresenceValue.setText("Waiting for login");
+        socialPresenceValue.setForeground(WARNING);
+        socialRegionValue.setText("—");
+        socialActivityValue.setText("—");
+        socialCombatValue.setText("—");
+        socialGearValue.setText("—");
     }
 
     public void showSharingEnabled()

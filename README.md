@@ -10,6 +10,8 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - One-click account snapshot syncing
 - Skill level progression updates
 - Live player location updates
+- Privacy-aware Social Hub presence for approved friends
+- Live world, broad region, activity, combat level, and worn equipment
 - Secure per-player connection using a private Dink URL
 - Supports multiple HCIM groups independently
 
@@ -21,13 +23,16 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 4. Copy your personal Dink URL.
 5. Enter the one-time link code in the RuneLite panel.
 6. Click **Sync Account Now** to upload current skills and completed quests.
-7. Enable location sharing if you want the live map.
+7. Leave **Share Social Hub presence** enabled to appear to approved friends.
+8. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
 ## Privacy
 
-The plugin only communicates with the HCIM Progression service using the private URL supplied by the user.
+The plugin communicates only with the configured Progression Path service using a private linked-device token.
+
+Social presence is visible only to approved Progression Path friends and is filtered by the website privacy controls. Exact location is disabled by default, and Wilderness safety can suppress exact coordinates.
 
 No gameplay automation is performed.
 

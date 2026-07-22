@@ -10,10 +10,32 @@ public interface HcimProgressionCompanionConfig extends Config
     String GROUP = "hcimprogressioncompanion";
 
     @ConfigItem(
-        keyName = "locationSharingEnabled",
-        name = "Share location",
-        description = "Securely shares your location with your HCIM Progression group.",
+        keyName = "socialPresenceEnabled",
+        name = "Share Social Hub presence",
+        description = "Shares online status, world, broad region, activity, combat level, and worn equipment with approved Progression Path friends. Website privacy settings still control each field.",
         position = 0
+    )
+    default boolean socialPresenceEnabled()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "socialClanSyncEnabled",
+        name = "Sync clan roster",
+        description = "Shares your own RuneScape clan roster, ranks, online members, and worlds with your private Social Hub clan page.",
+        position = 1
+    )
+    default boolean socialClanSyncEnabled()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "locationSharingEnabled",
+        name = "Share exact group location",
+        description = "Securely shares your exact location with your HCIM Progression group and allows exact Social Hub pins when enabled on the website.",
+        position = 2
     )
     default boolean locationSharingEnabled()
     {
@@ -24,7 +46,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "apiBaseUrl",
         name = "Website API URL",
         description = "Your HCIM Progression website URL followed by /.netlify/functions",
-        position = 1
+        position = 3
     )
     default String apiBaseUrl()
     {

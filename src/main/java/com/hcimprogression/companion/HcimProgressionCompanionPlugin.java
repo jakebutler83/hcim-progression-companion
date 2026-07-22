@@ -8,6 +8,11 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ClanChannelChanged;
+import net.runelite.api.events.ClanMemberJoined;
+import net.runelite.api.events.ClanMemberLeft;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -28,8 +33,8 @@ import net.runelite.client.callback.ClientThread;
 
 @PluginDescriptor(
     name = "HCIM Progression Companion",
-    description = "Connects RuneLite to HCIM Progression.",
-    tags = {"hcim", "group ironman", "progression", "location"}
+    description = "Connects RuneLite to Progression Path for progress, live location, and Social Hub presence.",
+    tags = {"hcim", "group ironman", "progression", "location", "social", "friends", "equipment"}
 )
 public class HcimProgressionCompanionPlugin extends Plugin
 {
@@ -46,19 +51,29 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Inject private HiscoreClient hiscoreClient;
 
     private final LocationService locationService = new LocationService();
+    private final SocialPresenceService socialPresenceService = new SocialPresenceService();
+    private final SocialClanService socialClanService = new SocialClanService();
     private final AccountSnapshotService accountSnapshotService = new AccountSnapshotService();
     private final CollectionLogCaptureService collectionLogCaptureService = new CollectionLogCaptureService();
     private final SyncService syncService = new SyncService();
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
     private int tickCounter;
+    private int presenceCycleCounter;
+    private int clanCycleCounter;
     private boolean syncInFlight;
+    private boolean presenceSyncInFlight;
+    private boolean clanSyncInFlight;
 
     @Override
     protected void startUp()
     {
         tickCounter = 0;
+        presenceCycleCounter = 0;
+        clanCycleCounter = 10;
         syncInFlight = false;
+        presenceSyncInFlight = false;
+        clanSyncInFlight = false;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
@@ -223,6 +238,41 @@ public class HcimProgressionCompanionPlugin extends Plugin
         });
     }
 
+
+    @Subscribe
+    public void onItemContainerChanged(ItemContainerChanged event)
+    {
+        if (event.getContainerId() != InventoryID.WORN)
+        {
+            return;
+        }
+
+        socialPresenceService.updateWornEquipment(event.getItemContainer());
+        // Request a fresh presence snapshot on the next eligible game tick.
+        presenceCycleCounter = 2;
+    }
+
+    @Subscribe
+    public void onClanChannelChanged(ClanChannelChanged event)
+    {
+        if (!event.isGuest())
+        {
+            clanCycleCounter = 10;
+        }
+    }
+
+    @Subscribe
+    public void onClanMemberJoined(ClanMemberJoined event)
+    {
+        clanCycleCounter = 10;
+    }
+
+    @Subscribe
+    public void onClanMemberLeft(ClanMemberLeft event)
+    {
+        clanCycleCounter = 10;
+    }
+
     @Subscribe
     public void onGameTick(GameTick event)
     {
@@ -253,16 +303,86 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         String token = deviceToken();
-        if (!config.locationSharingEnabled() || token.isEmpty() || syncInFlight) return;
+        if (token.isEmpty()) return;
 
-        syncInFlight = true;
-        syncService.syncLocation(config.apiBaseUrl(), token, state, error -> {
-            syncInFlight = false;
+        clanCycleCounter++;
+        if (clanCycleCounter >= 10)
+        {
+            clanCycleCounter = 0;
+            syncClanPresence(token);
+        }
+
+        if (config.locationSharingEnabled() && !syncInFlight)
+        {
+            syncInFlight = true;
+            syncService.syncLocation(config.apiBaseUrl(), token, state, error -> {
+                syncInFlight = false;
+                SwingUtilities.invokeLater(() -> {
+                    if (panel == null) return;
+                    if (error == null) panel.showSyncSuccess();
+                    else panel.showSyncError(error);
+                });
+            });
+        }
+
+        presenceCycleCounter++;
+        if (presenceCycleCounter < 2) return;
+        presenceCycleCounter = 0;
+
+        if (!config.socialPresenceEnabled())
+        {
+            if (panel != null) SwingUtilities.invokeLater(panel::showSocialPresenceDisabled);
+            return;
+        }
+
+        if (presenceSyncInFlight) return;
+        SocialPresenceSnapshot presence = socialPresenceService.createSnapshot(
+            client,
+            itemManager,
+            config.locationSharingEnabled()
+        );
+        if (presence == null) return;
+
+        presenceSyncInFlight = true;
+        if (panel != null)
+        {
+            SwingUtilities.invokeLater(() -> panel.showSocialPresenceSyncing(
+                presence.getRegionName(),
+                presence.getActivity(),
+                presence.getCombatLevel(),
+                presence.getEquipment().size()
+            ));
+        }
+        syncService.syncSocialPresence(config.apiBaseUrl(), token, presence, error -> {
+            presenceSyncInFlight = false;
             SwingUtilities.invokeLater(() -> {
                 if (panel == null) return;
-                if (error == null) panel.showSyncSuccess();
-                else panel.showSyncError(error);
+                if (error == null) panel.showSocialPresenceSuccess();
+                else panel.showSocialPresenceError(error);
             });
+        });
+    }
+
+    private void syncClanPresence(String token)
+    {
+        if (!config.socialClanSyncEnabled() || clanSyncInFlight)
+        {
+            return;
+        }
+
+        SocialClanSnapshot clanSnapshot = socialClanService.createSnapshot(client);
+        if (clanSnapshot == null)
+        {
+            return;
+        }
+
+        clanSyncInFlight = true;
+        syncService.syncSocialClan(config.apiBaseUrl(), token, clanSnapshot, error -> {
+            clanSyncInFlight = false;
+            if (error != null)
+            {
+                logger.debug("Social clan roster sync failed: {}", error);
+            }
         });
     }
 
