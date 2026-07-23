@@ -179,6 +179,52 @@ public class SyncService {
                 });
     }
 
+    public void syncClanEvents(
+            String apiBaseUrl,
+            String token,
+            SocialClanEventSnapshot snapshot,
+            Consumer<String> callback) {
+        StringBuilder events = new StringBuilder("[");
+        boolean firstEvent = true;
+        for (SocialClanEventSnapshot.ClanEventSnapshot clanEvent : snapshot.getEvents()) {
+            if (!firstEvent) {
+                events.append(',');
+            }
+            firstEvent = false;
+            events.append('{')
+                    .append("\"title\":\"").append(escape(clanEvent.getTitle())).append("\",")
+                    .append("\"type\":\"").append(escape(clanEvent.getType())).append("\",")
+                    .append("\"subType\":\"").append(escape(clanEvent.getSubType())).append("\",")
+                    .append("\"requiredRank\":\"").append(escape(clanEvent.getRequiredRank())).append("\",")
+                    .append("\"createdBy\":\"").append(escape(clanEvent.getCreatedBy())).append("\",")
+                    .append("\"world\":").append(clanEvent.getWorld()).append(',')
+                    .append("\"durationDays\":").append(clanEvent.getDurationDays()).append(',')
+                    .append("\"startAt\":").append(clanEvent.getStartAt()).append(',')
+                    .append("\"endAt\":").append(clanEvent.getEndAt())
+                    .append('}');
+        }
+        events.append(']');
+
+        String json = "{"
+                + "\"clanName\":\"" + escape(snapshot.getClanName()) + "\","
+                + "\"importedBy\":\"" + escape(snapshot.getImportedBy()) + "\","
+                + "\"timestamp\":" + snapshot.getTimestamp() + ","
+                + "\"events\":" + events
+                + "}";
+
+        post(apiBaseUrl, "companion-clan-events-sync", token, json)
+                .whenComplete((body, error) ->
+                {
+                    if (error != null) {
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
     public void syncAccount(
             String apiBaseUrl,
             String token,

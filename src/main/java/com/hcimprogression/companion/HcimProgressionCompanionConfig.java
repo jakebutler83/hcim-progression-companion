@@ -31,11 +31,23 @@ public interface HcimProgressionCompanionConfig extends Config
         return true;
     }
 
+
+    @ConfigItem(
+        keyName = "socialClanEventsSyncEnabled",
+        name = "Sync clan events",
+        description = "Imports the in-game Clan Settings Events list into the Progression Path clan calendar whenever you open that interface.",
+        position = 2
+    )
+    default boolean socialClanEventsSyncEnabled()
+    {
+        return true;
+    }
+
     @ConfigItem(
         keyName = "locationSharingEnabled",
         name = "Share exact group location",
         description = "Securely shares your exact location with your HCIM Progression group and allows exact Social Hub pins when enabled on the website.",
-        position = 2
+        position = 3
     )
     default boolean locationSharingEnabled()
     {
@@ -46,7 +58,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "apiBaseUrl",
         name = "Website API URL",
         description = "Your HCIM Progression website URL followed by /.netlify/functions",
-        position = 3
+        position = 4
     )
     default String apiBaseUrl()
     {

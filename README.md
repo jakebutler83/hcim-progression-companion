@@ -12,6 +12,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - Live player location updates
 - Privacy-aware Social Hub presence for approved friends
 - Live world, broad region, activity, combat level, and worn equipment
+- Private RuneScape clan roster, rank, online-world, and in-game clan-event syncing
 - Secure per-player connection using a private Dink URL
 - Supports multiple HCIM groups independently
 
@@ -24,7 +25,9 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 5. Enter the one-time link code in the RuneLite panel.
 6. Click **Sync Account Now** to upload current skills and completed quests.
 7. Leave **Share Social Hub presence** enabled to appear to approved friends.
-8. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
+8. Leave **Sync clan roster** enabled to populate the Clan Hall.
+9. Leave **Sync clan events** enabled, then open **Clan Settings → Events** in game whenever you want to import or refresh the clan calendar.
+10. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
@@ -33,6 +36,8 @@ Once connected, supported progression updates will automatically appear on your 
 The plugin communicates only with the configured Progression Path service using a private linked-device token.
 
 Social presence is visible only to approved Progression Path friends and is filtered by the website privacy controls. Exact location is disabled by default, and Wilderness safety can suppress exact coordinates.
+
+Clan event syncing is read-only: it imports the visible in-game calendar into Progression Path but never creates or edits RuneScape clan events.
 
 No gameplay automation is performed.
 

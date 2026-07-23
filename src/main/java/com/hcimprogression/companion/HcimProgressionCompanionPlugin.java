@@ -33,8 +33,8 @@ import net.runelite.client.callback.ClientThread;
 
 @PluginDescriptor(
     name = "HCIM Progression Companion",
-    description = "Connects RuneLite to Progression Path for progress, live location, and Social Hub presence.",
-    tags = {"hcim", "group ironman", "progression", "location", "social", "friends", "equipment"}
+    description = "Connects RuneLite to Progression Path for progress, live location, Social Hub presence, clan rosters, and clan events.",
+    tags = {"hcim", "group ironman", "progression", "location", "social", "friends", "equipment", "clan", "events"}
 )
 public class HcimProgressionCompanionPlugin extends Plugin
 {
@@ -53,6 +53,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final LocationService locationService = new LocationService();
     private final SocialPresenceService socialPresenceService = new SocialPresenceService();
     private final SocialClanService socialClanService = new SocialClanService();
+    private final SocialClanEventService socialClanEventService = new SocialClanEventService();
     private final AccountSnapshotService accountSnapshotService = new AccountSnapshotService();
     private final CollectionLogCaptureService collectionLogCaptureService = new CollectionLogCaptureService();
     private final SyncService syncService = new SyncService();
@@ -64,6 +65,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private boolean syncInFlight;
     private boolean presenceSyncInFlight;
     private boolean clanSyncInFlight;
+    private volatile boolean clanEventsSyncInFlight;
+    private volatile String lastClanEventsFingerprint = "";
+    private boolean clanEventsWidgetOpen;
 
     @Override
     protected void startUp()
@@ -74,6 +78,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         syncInFlight = false;
         presenceSyncInFlight = false;
         clanSyncInFlight = false;
+        clanEventsSyncInFlight = false;
+        lastClanEventsFingerprint = "";
+        clanEventsWidgetOpen = false;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
@@ -98,6 +105,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (navigationButton != null) clientToolbar.removeNavigation(navigationButton);
         panel = null;
         navigationButton = null;
+        clanEventsSyncInFlight = false;
+        lastClanEventsFingerprint = "";
+        clanEventsWidgetOpen = false;
         logger.info("HCIM Progression Companion stopped.");
     }
 
@@ -305,6 +315,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         String token = deviceToken();
         if (token.isEmpty()) return;
 
+        syncClanEventsIfVisible(token);
+
         clanCycleCounter++;
         if (clanCycleCounter >= 10)
         {
@@ -365,7 +377,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void syncClanPresence(String token)
     {
-        if (!config.socialClanSyncEnabled() || clanSyncInFlight)
+        if (!config.socialClanSyncEnabled())
+        {
+            if (panel != null) SwingUtilities.invokeLater(panel::showClanRosterDisabled);
+            return;
+        }
+        if (clanSyncInFlight)
         {
             return;
         }
@@ -379,9 +396,82 @@ public class HcimProgressionCompanionPlugin extends Plugin
         clanSyncInFlight = true;
         syncService.syncSocialClan(config.apiBaseUrl(), token, clanSnapshot, error -> {
             clanSyncInFlight = false;
+            SwingUtilities.invokeLater(() -> {
+                if (panel == null) return;
+                if (error == null)
+                {
+                    panel.showClanRosterSuccess(clanSnapshot.getMembers().size());
+                }
+                else
+                {
+                    panel.showClanRosterError(error);
+                }
+            });
             if (error != null)
             {
                 logger.debug("Social clan roster sync failed: {}", error);
+            }
+        });
+    }
+
+    private void syncClanEventsIfVisible(String token)
+    {
+        if (!config.socialClanEventsSyncEnabled())
+        {
+            clanEventsWidgetOpen = false;
+            lastClanEventsFingerprint = "";
+            if (panel != null) SwingUtilities.invokeLater(panel::showClanEventsDisabled);
+            return;
+        }
+
+        SocialClanEventSnapshot snapshot = socialClanEventService.createSnapshot(client);
+        if (snapshot == null)
+        {
+            if (clanEventsWidgetOpen)
+            {
+                clanEventsWidgetOpen = false;
+                // Reopening the interface should always force one fresh import,
+                // even when the visible rows have not changed.
+                lastClanEventsFingerprint = "";
+            }
+            return;
+        }
+
+        boolean newlyOpened = !clanEventsWidgetOpen;
+        clanEventsWidgetOpen = true;
+        String fingerprint = snapshot.fingerprint();
+        if (clanEventsSyncInFlight || (!newlyOpened && fingerprint.equals(lastClanEventsFingerprint)))
+        {
+            return;
+        }
+
+        clanEventsSyncInFlight = true;
+        int eventCount = snapshot.getEvents().size();
+        if (panel != null)
+        {
+            SwingUtilities.invokeLater(() -> panel.showClanEventsSyncing(eventCount));
+        }
+
+        syncService.syncClanEvents(config.apiBaseUrl(), token, snapshot, error -> {
+            clanEventsSyncInFlight = false;
+            if (error == null)
+            {
+                lastClanEventsFingerprint = fingerprint;
+            }
+            SwingUtilities.invokeLater(() -> {
+                if (panel == null) return;
+                if (error == null)
+                {
+                    panel.showClanEventsSuccess(eventCount);
+                }
+                else
+                {
+                    panel.showClanEventsError(error);
+                }
+            });
+            if (error != null)
+            {
+                logger.debug("Clan event import failed: {}", error);
             }
         });
     }

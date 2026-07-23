@@ -32,6 +32,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel socialActivityValue = new JLabel("—");
     private final JLabel socialCombatValue = new JLabel("—");
     private final JLabel socialGearValue = new JLabel("—");
+    private final JLabel clanRosterValue = new JLabel("Waiting");
+    private final JLabel clanEventsValue = new JLabel("Open Clan Events");
     private final JLabel accountSyncStatusValue = new JLabel("Never synced");
     private final JLabel questsUpdatedValue = new JLabel("—");
     private final JLabel tasksUpdatedValue = new JLabel("—");
@@ -96,6 +98,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         informationPanel.add(createRow("Current activity", socialActivityValue));
         informationPanel.add(createRow("Combat level", socialCombatValue));
         informationPanel.add(createRow("Worn gear slots", socialGearValue));
+        informationPanel.add(createRow("Clan roster sync", clanRosterValue));
+        informationPanel.add(createRow("Clan events sync", clanEventsValue));
         informationPanel.add(createRow("Player", playerValue));
         informationPanel.add(createRow("World", worldValue));
         informationPanel.add(createRow("Region ID", regionValue));
@@ -251,6 +255,56 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         socialPresenceValue.setForeground(WARNING);
     }
 
+
+    public void showClanRosterSuccess(int members)
+    {
+        clanRosterValue.setText(members + " members");
+        clanRosterValue.setForeground(SUCCESS);
+    }
+
+    public void showClanRosterError(String message)
+    {
+        clanRosterValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        clanRosterValue.setForeground(ERROR);
+    }
+
+    public void showClanRosterDisabled()
+    {
+        clanRosterValue.setText("Disabled in settings");
+        clanRosterValue.setForeground(WARNING);
+    }
+
+    public void showClanEventsSyncing(int events)
+    {
+        clanEventsValue.setText("Syncing " + events + "…");
+        clanEventsValue.setForeground(WARNING);
+    }
+
+    public void showClanEventsSuccess(int events)
+    {
+        clanEventsValue.setText(events + " events · " + LocalTime.now().format(TIME_FORMAT));
+        clanEventsValue.setForeground(SUCCESS);
+        clanEventsValue.setToolTipText("Open Clan Settings → Events again to force a fresh import.");
+    }
+
+    public void showClanEventsWaiting()
+    {
+        clanEventsValue.setText("Open Clan Settings → Events");
+        clanEventsValue.setForeground(WARNING);
+    }
+
+    public void showClanEventsError(String message)
+    {
+        clanEventsValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        clanEventsValue.setForeground(ERROR);
+    }
+
+    public void showClanEventsDisabled()
+    {
+        clanEventsValue.setText("Disabled in settings");
+        clanEventsValue.setForeground(WARNING);
+    }
+
     public void showSyncSuccess()
     {
         locationSyncValue.setText("Just now");
@@ -289,6 +343,10 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         socialActivityValue.setText("—");
         socialCombatValue.setText("—");
         socialGearValue.setText("—");
+        clanRosterValue.setText("Waiting for login");
+        clanRosterValue.setForeground(WARNING);
+        clanEventsValue.setText("Open Clan Settings → Events");
+        clanEventsValue.setForeground(WARNING);
     }
 
     public void showSharingEnabled()
