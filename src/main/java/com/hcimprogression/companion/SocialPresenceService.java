@@ -209,6 +209,7 @@ public class SocialPresenceService
         int x = point.getX();
         int y = point.getY();
 
+        if (x >= 2480 && x <= 2700 && ((y >= 2100 && y <= 2400) || (y >= 8450 && y <= 8750))) return "Wyrmscraig";
         if (y >= 3520 && x >= 2940 && x <= 3395) return "Wilderness";
         if (x >= 1150 && x <= 2050 && y >= 3350 && y <= 4250) return "Kourend & Kebos";
         if (x >= 1200 && x <= 2050 && y >= 2750 && y < 3350) return "Varlamore";
