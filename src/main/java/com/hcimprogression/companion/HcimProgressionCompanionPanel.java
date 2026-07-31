@@ -34,6 +34,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel socialGearValue = new JLabel("—");
     private final JLabel clanRosterValue = new JLabel("Waiting");
     private final JLabel clanEventsValue = new JLabel("Open Clan Events");
+    private final JLabel groupStorageValue = new JLabel("Disabled");
     private final JLabel accountSyncStatusValue = new JLabel("Never synced");
     private final JLabel questsUpdatedValue = new JLabel("—");
     private final JLabel tasksUpdatedValue = new JLabel("—");
@@ -100,6 +101,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         informationPanel.add(createRow("Worn gear slots", socialGearValue));
         informationPanel.add(createRow("Clan roster sync", clanRosterValue));
         informationPanel.add(createRow("Clan events sync", clanEventsValue));
+        informationPanel.add(createRow("Group storage sync", groupStorageValue));
         informationPanel.add(createRow("Player", playerValue));
         informationPanel.add(createRow("World", worldValue));
         informationPanel.add(createRow("Region ID", regionValue));
@@ -305,6 +307,37 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         clanEventsValue.setForeground(WARNING);
     }
 
+    public void showGroupStorageWaiting()
+    {
+        groupStorageValue.setText("Open Group Storage");
+        groupStorageValue.setForeground(WARNING);
+    }
+
+    public void showGroupStorageSyncing(int occupiedSlots)
+    {
+        groupStorageValue.setText("Syncing " + occupiedSlots + " slots...");
+        groupStorageValue.setForeground(WARNING);
+    }
+
+    public void showGroupStorageSuccess(int occupiedSlots)
+    {
+        groupStorageValue.setText(occupiedSlots + " slots - " + LocalTime.now().format(TIME_FORMAT));
+        groupStorageValue.setForeground(SUCCESS);
+        groupStorageValue.setToolTipText("The website now has the latest Group Storage snapshot.");
+    }
+
+    public void showGroupStorageError(String message)
+    {
+        groupStorageValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        groupStorageValue.setForeground(ERROR);
+    }
+
+    public void showGroupStorageDisabled()
+    {
+        groupStorageValue.setText("Disabled in settings");
+        groupStorageValue.setForeground(WARNING);
+    }
+
     public void showSyncSuccess()
     {
         locationSyncValue.setText("Just now");
@@ -345,6 +378,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         socialGearValue.setText("—");
         clanRosterValue.setText("Waiting for login");
         clanRosterValue.setForeground(WARNING);
+        groupStorageValue.setText("Waiting for login");
+        groupStorageValue.setForeground(WARNING);
         clanEventsValue.setText("Open Clan Settings → Events");
         clanEventsValue.setForeground(WARNING);
     }

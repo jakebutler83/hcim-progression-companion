@@ -6,12 +6,15 @@ import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ClanChannelChanged;
 import net.runelite.api.events.ClanMemberJoined;
 import net.runelite.api.events.ClanMemberLeft;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.client.config.ConfigManager;
@@ -33,8 +36,8 @@ import net.runelite.client.callback.ClientThread;
 
 @PluginDescriptor(
     name = "HCIM Progression Companion",
-    description = "Connects RuneLite to Progression Path for progress, live location, Social Hub presence, clan rosters, and clan events.",
-    tags = {"hcim", "group ironman", "progression", "location", "social", "friends", "equipment", "clan", "events"}
+    description = "Connects RuneLite to Progression Path for progress, Group Storage, location, Social Hub presence, clan rosters, and clan events.",
+    tags = {"hcim", "group ironman", "progression", "group storage", "bank", "location", "social", "friends", "equipment", "clan", "events"}
 )
 public class HcimProgressionCompanionPlugin extends Plugin
 {
@@ -56,7 +59,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final SocialClanEventService socialClanEventService = new SocialClanEventService();
     private final AccountSnapshotService accountSnapshotService = new AccountSnapshotService();
     private final CollectionLogCaptureService collectionLogCaptureService = new CollectionLogCaptureService();
-    private final SyncService syncService = new SyncService();
+    private final GroupStorageSnapshotService groupStorageSnapshotService = new GroupStorageSnapshotService();
+    @Inject private SyncService syncService;
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
     private int tickCounter;
@@ -68,6 +72,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile boolean clanEventsSyncInFlight;
     private volatile String lastClanEventsFingerprint = "";
     private boolean clanEventsWidgetOpen;
+    private GroupStorageSnapshot pendingGroupStorageSnapshot;
+    private boolean groupStorageDirty;
+    private int groupStorageDebounceTicks;
+    private volatile boolean groupStorageSyncInFlight;
 
     @Override
     protected void startUp()
@@ -81,6 +89,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         clanEventsSyncInFlight = false;
         lastClanEventsFingerprint = "";
         clanEventsWidgetOpen = false;
+        pendingGroupStorageSnapshot = null;
+        groupStorageDirty = false;
+        groupStorageDebounceTicks = 0;
+        groupStorageSyncInFlight = false;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
@@ -95,6 +107,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         String token = deviceToken();
         if (token.isEmpty()) panel.showUnlinked();
         else panel.showLinked(configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, DISPLAY_NAME_KEY));
+        if (config.groupStorageSyncEnabled()) panel.showGroupStorageWaiting();
+        else panel.showGroupStorageDisabled();
 
         logger.info("HCIM Progression Companion started.");
     }
@@ -108,6 +122,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         clanEventsSyncInFlight = false;
         lastClanEventsFingerprint = "";
         clanEventsWidgetOpen = false;
+        pendingGroupStorageSnapshot = null;
+        groupStorageDirty = false;
+        groupStorageSyncInFlight = false;
         logger.info("HCIM Progression Companion stopped.");
     }
 
@@ -252,6 +269,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (event.getContainerId() == InventoryID.INV_GROUP_TEMP
+            && client.getTopLevelInterfaceId() == InterfaceID.SHARED_BANK)
+        {
+            captureGroupStorage(event.getItemContainer());
+        }
+
         if (event.getContainerId() != InventoryID.WORN)
         {
             return;
@@ -260,6 +283,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
         socialPresenceService.updateWornEquipment(event.getItemContainer());
         // Request a fresh presence snapshot on the next eligible game tick.
         presenceCycleCounter = 2;
+    }
+
+    @Subscribe
+    public void onWidgetLoaded(WidgetLoaded event)
+    {
+        if (event.getGroupId() == InterfaceID.SHARED_BANK)
+        {
+            captureGroupStorage(client.getItemContainer(InventoryID.INV_GROUP_TEMP));
+        }
     }
 
     @Subscribe
@@ -291,6 +323,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
             if (panel != null) SwingUtilities.invokeLater(panel::showLoggedOut);
             return;
         }
+
+        handlePendingGroupStorage();
 
         tickCounter++;
         if (tickCounter < 5) return;
@@ -372,6 +406,97 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 if (error == null) panel.showSocialPresenceSuccess();
                 else panel.showSocialPresenceError(error);
             });
+        });
+    }
+
+    private void captureGroupStorage(ItemContainer container)
+    {
+        if (!config.groupStorageSyncEnabled())
+        {
+            pendingGroupStorageSnapshot = null;
+            groupStorageDirty = false;
+            if (panel != null) SwingUtilities.invokeLater(panel::showGroupStorageDisabled);
+            return;
+        }
+
+        if (deviceToken().isEmpty())
+        {
+            if (panel != null)
+            {
+                SwingUtilities.invokeLater(() -> panel.showGroupStorageError("Link companion first"));
+            }
+            return;
+        }
+
+        GroupStorageSnapshot snapshot =
+            groupStorageSnapshotService.createSnapshot(client, itemManager, container);
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        pendingGroupStorageSnapshot = snapshot;
+        groupStorageDirty = true;
+        groupStorageDebounceTicks = 2;
+    }
+
+    private void handlePendingGroupStorage()
+    {
+        if (!config.groupStorageSyncEnabled())
+        {
+            pendingGroupStorageSnapshot = null;
+            groupStorageDirty = false;
+            return;
+        }
+
+        if (!groupStorageDirty || groupStorageSyncInFlight)
+        {
+            return;
+        }
+
+        if (groupStorageDebounceTicks > 0)
+        {
+            groupStorageDebounceTicks--;
+            return;
+        }
+
+        String token = deviceToken();
+        if (token.isEmpty())
+        {
+            groupStorageDirty = false;
+            if (panel != null)
+            {
+                SwingUtilities.invokeLater(() -> panel.showGroupStorageError("Link companion first"));
+            }
+            return;
+        }
+
+        GroupStorageSnapshot snapshot = pendingGroupStorageSnapshot;
+        if (snapshot == null)
+        {
+            groupStorageDirty = false;
+            return;
+        }
+
+        groupStorageDirty = false;
+        groupStorageSyncInFlight = true;
+        int occupiedSlots = snapshot.getOccupiedSlots();
+        if (panel != null)
+        {
+            SwingUtilities.invokeLater(() -> panel.showGroupStorageSyncing(occupiedSlots));
+        }
+
+        syncService.syncGroupStorage(config.apiBaseUrl(), token, snapshot, error -> {
+            groupStorageSyncInFlight = false;
+            SwingUtilities.invokeLater(() -> {
+                if (panel == null) return;
+                if (error == null) panel.showGroupStorageSuccess(occupiedSlots);
+                else panel.showGroupStorageError(error);
+            });
+            if (error != null)
+            {
+                logger.debug("Group Storage sync failed: {}", error);
+            }
         });
     }
 

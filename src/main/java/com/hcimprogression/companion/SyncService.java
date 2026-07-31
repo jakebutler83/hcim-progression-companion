@@ -1,21 +1,32 @@
 package com.hcimprogression.companion;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+import com.google.gson.Gson;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 @Slf4j
 public class SyncService {
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    private final OkHttpClient httpClient;
+    private final Gson gson;
+
+    @Inject
+    public SyncService(OkHttpClient httpClient, Gson gson) {
+        this.httpClient = httpClient;
+        this.gson = gson;
+    }
 
     public void exchangeCode(
             String apiBaseUrl,
@@ -344,50 +355,79 @@ public class SyncService {
                 });
     }
 
+    public void syncGroupStorage(
+            String apiBaseUrl,
+            String token,
+            GroupStorageSnapshot snapshot,
+            Consumer<String> callback) {
+        post(apiBaseUrl, "companion-group-storage-sync", token, gson.toJson(snapshot))
+                .whenComplete((body, error) ->
+                {
+                    if (error != null) {
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
     private CompletableFuture<String> post(
             String baseUrl,
             String functionName,
             String token,
             String json) {
         String base = normalizeBaseUrl(baseUrl);
-
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(base + "/" + functionName))
-                .timeout(Duration.ofSeconds(15))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json));
+        Request.Builder builder = new Request.Builder()
+                .url(base + "/" + functionName)
+                .post(RequestBody.create(JSON, json));
 
         if (token != null && !token.isEmpty()) {
-            builder.header("Authorization", "Bearer " + token);
+            builder.addHeader("Authorization", "Bearer " + token);
         }
 
-        HttpRequest request = builder.build();
+        Request request = builder.build();
 
-        log.debug("Sending POST to: {}", request.uri());
+        log.debug("Sending POST to: {}", request.url());
+        CompletableFuture<String> future = new CompletableFuture<>();
+        httpClient.newCall(request).enqueue(new Callback()
+        {
+            @Override
+            public void onFailure(Call call, IOException error)
+            {
+                future.completeExceptionally(error);
+            }
 
-        return httpClient
-                .sendAsync(
-                        request,
-                        HttpResponse.BodyHandlers.ofString()
-                )
-                .thenApply(response ->
+            @Override
+            public void onResponse(Call call, Response response)
+            {
+                try (Response closeableResponse = response)
                 {
-                    log.debug("Response status: {}", response.statusCode());
+                    String responseBody = closeableResponse.body() == null
+                        ? ""
+                        : closeableResponse.body().string();
+                    log.debug("Response status: {}", closeableResponse.code());
+                    log.debug("Response body: {}", responseBody);
 
-                    log.debug("Response body: {}", response.body());
-
-                    if (response.statusCode() < 200
-                            || response.statusCode() >= 300) {
-                        throw new RuntimeException(
+                    if (!closeableResponse.isSuccessful()) {
+                        future.completeExceptionally(new RuntimeException(
                                 "HTTP "
-                                        + response.statusCode()
+                                        + closeableResponse.code()
                                         + ": "
-                                        + errorValue(response.body())
-                        );
+                                        + errorValue(responseBody)
+                        ));
+                        return;
                     }
-
-                    return response.body();
-                });
+                    future.complete(responseBody);
+                }
+                catch (IOException error)
+                {
+                    future.completeExceptionally(error);
+                }
+            }
+        });
+        return future;
     }
 
     private String normalizeBaseUrl(String value) {

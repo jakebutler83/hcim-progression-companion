@@ -55,10 +55,22 @@ public interface HcimProgressionCompanionConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "groupStorageSyncEnabled",
+        name = "Sync Group Storage",
+        description = "Uploads the contents of your Group Ironman shared storage to your private Progression Path group whenever you open or change it.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
+        position = 4
+    )
+    default boolean groupStorageSyncEnabled()
+    {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "apiBaseUrl",
         name = "Website API URL",
         description = "Your HCIM Progression website URL followed by /.netlify/functions",
-        position = 4
+        position = 5
     )
     default String apiBaseUrl()
     {
