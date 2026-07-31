@@ -188,10 +188,10 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         }
     }
 
-    public void showAccountSyncSuccess(int quests, int tasks)
+    public void showAccountSyncSuccess(int quests, int tasks, int bossKillCounts)
     {
         setAccountSyncing(false);
-        accountSyncStatusValue.setText("Synced successfully");
+        accountSyncStatusValue.setText("Synced \u2022 " + bossKillCounts + " boss KCs");
         accountSyncStatusValue.setForeground(SUCCESS);
         questsUpdatedValue.setText(String.valueOf(quests));
         questsUpdatedValue.setForeground(SUCCESS);

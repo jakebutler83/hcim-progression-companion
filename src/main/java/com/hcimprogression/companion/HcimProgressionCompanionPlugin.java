@@ -188,6 +188,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                         if (hiscoreResult != null)
                         {
                             applyHiscoreClueCounts(snapshot, hiscoreResult);
+                            applyHiscoreBossKillCounts(snapshot, hiscoreResult);
                         }
                         else
                         {
@@ -203,7 +204,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
                                     panel.showAccountSyncError(error == null ? "Account sync failed" : error);
                                     return;
                                 }
-                                panel.showAccountSyncSuccess(result.getQuestUpdates(), result.getTaskUpdates());
+                                panel.showAccountSyncSuccess(
+                                    result.getQuestUpdates(),
+                                    result.getTaskUpdates(),
+                                    result.getBossKillCountCount()
+                                );
                             })
                         );
                     });
@@ -238,6 +243,109 @@ public class HcimProgressionCompanionPlugin extends Plugin
     {
         int count = skill == null ? 0 : skill.getLevel();
         snapshot.getClueCounts().put(tier, Math.max(0, count));
+    }
+
+    private void applyHiscoreBossKillCounts(AccountSnapshot snapshot, HiscoreResult result)
+    {
+        putBossKillCount(snapshot, "maggot-king", result.getSkill(HiscoreSkill.MAGGOT_KING));
+        putBossKillCount(snapshot, "bryophyta", result.getSkill(HiscoreSkill.BRYOPHYTA));
+        putBossKillCount(snapshot, "obor", result.getSkill(HiscoreSkill.OBOR));
+        putBossKillCount(snapshot, "scurrius", result.getSkill(HiscoreSkill.SCURRIUS));
+        putBossKillCount(snapshot, "barrows", result.getSkill(HiscoreSkill.BARROWS_CHESTS));
+        putBossKillCount(snapshot, "giant-mole", result.getSkill(HiscoreSkill.GIANT_MOLE));
+        putBossKillCount(snapshot, "sarachnis", result.getSkill(HiscoreSkill.SARACHNIS));
+        putBossKillCount(snapshot, "hespori", result.getSkill(HiscoreSkill.HESPORI));
+        putBossKillCount(snapshot, "tempoross", result.getSkill(HiscoreSkill.TEMPOROSS));
+        putBossKillCount(snapshot, "wintertodt", result.getSkill(HiscoreSkill.WINTERTODT));
+        putBossKillCount(snapshot, "deranged-archaeologist", result.getSkill(HiscoreSkill.DERANGED_ARCHAEOLOGIST));
+        putBossKillCount(snapshot, "king-black-dragon", result.getSkill(HiscoreSkill.KING_BLACK_DRAGON));
+        putBossKillCount(snapshot, "kalphite-queen", result.getSkill(HiscoreSkill.KALPHITE_QUEEN));
+        putBossKillCountSum(snapshot, "dagannoth-kings",
+            result.getSkill(HiscoreSkill.DAGANNOTH_PRIME),
+            result.getSkill(HiscoreSkill.DAGANNOTH_REX),
+            result.getSkill(HiscoreSkill.DAGANNOTH_SUPREME));
+        putBossKillCount(snapshot, "skotizo", result.getSkill(HiscoreSkill.SKOTIZO));
+        putBossKillCount(snapshot, "kraken", result.getSkill(HiscoreSkill.KRAKEN));
+        putBossKillCount(snapshot, "grotesque-guardians", result.getSkill(HiscoreSkill.GROTESQUE_GUARDIANS));
+        putBossKillCount(snapshot, "perilous-moons", result.getSkill(HiscoreSkill.LUNAR_CHESTS));
+        putBossKillCount(snapshot, "amoxliatl", result.getSkill(HiscoreSkill.AMOXLIATL));
+        putBossKillCount(snapshot, "hueycoatl", result.getSkill(HiscoreSkill.THE_HUEYCOATL));
+        putBossKillCount(snapshot, "royal-titans", result.getSkill(HiscoreSkill.THE_ROYAL_TITANS));
+        putBossKillCount(snapshot, "mimic", result.getSkill(HiscoreSkill.MIMIC));
+        putBossKillCount(snapshot, "tzhaar-fight-cave", result.getSkill(HiscoreSkill.TZTOK_JAD));
+        putBossKillCount(snapshot, "zulrah", result.getSkill(HiscoreSkill.ZULRAH));
+        putBossKillCount(snapshot, "vorkath", result.getSkill(HiscoreSkill.VORKATH));
+        putBossKillCount(snapshot, "gauntlet", result.getSkill(HiscoreSkill.THE_GAUNTLET));
+        putBossKillCount(snapshot, "corrupted-gauntlet", result.getSkill(HiscoreSkill.THE_CORRUPTED_GAUNTLET));
+        putBossKillCount(snapshot, "zalcano", result.getSkill(HiscoreSkill.ZALCANO));
+        putBossKillCount(snapshot, "chaos-fanatic", result.getSkill(HiscoreSkill.CHAOS_FANATIC));
+        putBossKillCount(snapshot, "crazy-archaeologist", result.getSkill(HiscoreSkill.CRAZY_ARCHAEOLOGIST));
+        putBossKillCount(snapshot, "scorpia", result.getSkill(HiscoreSkill.SCORPIA));
+        putBossKillCount(snapshot, "chaos-elemental", result.getSkill(HiscoreSkill.CHAOS_ELEMENTAL));
+        putBossKillCount(snapshot, "calvarion", result.getSkill(HiscoreSkill.CALVARION));
+        putBossKillCount(snapshot, "spindel", result.getSkill(HiscoreSkill.SPINDEL));
+        putBossKillCount(snapshot, "artio", result.getSkill(HiscoreSkill.ARTIO));
+        putBossKillCount(snapshot, "vetion", result.getSkill(HiscoreSkill.VETION));
+        putBossKillCount(snapshot, "venenatis", result.getSkill(HiscoreSkill.VENENATIS));
+        putBossKillCount(snapshot, "callisto", result.getSkill(HiscoreSkill.CALLISTO));
+        putBossKillCount(snapshot, "abyssal-sire", result.getSkill(HiscoreSkill.ABYSSAL_SIRE));
+        putBossKillCount(snapshot, "cerberus", result.getSkill(HiscoreSkill.CERBERUS));
+        putBossKillCount(snapshot, "thermy", result.getSkill(HiscoreSkill.THERMONUCLEAR_SMOKE_DEVIL));
+        putBossKillCount(snapshot, "alchemical-hydra", result.getSkill(HiscoreSkill.ALCHEMICAL_HYDRA));
+        putBossKillCount(snapshot, "araxxor", result.getSkill(HiscoreSkill.ARAXXOR));
+        putBossKillCount(snapshot, "commander-zilyana", result.getSkill(HiscoreSkill.COMMANDER_ZILYANA));
+        putBossKillCount(snapshot, "general-graardor", result.getSkill(HiscoreSkill.GENERAL_GRAARDOR));
+        putBossKillCount(snapshot, "kril", result.getSkill(HiscoreSkill.KRIL_TSUTSAROTH));
+        putBossKillCount(snapshot, "kree-arra", result.getSkill(HiscoreSkill.KREEARRA));
+        putBossKillCount(snapshot, "phantom-muspah", result.getSkill(HiscoreSkill.PHANTOM_MUSPAH));
+        putBossKillCount(snapshot, "vardorvis", result.getSkill(HiscoreSkill.VARDORVIS));
+        putBossKillCount(snapshot, "duke-sucellus", result.getSkill(HiscoreSkill.DUKE_SUCELLUS));
+        putBossKillCount(snapshot, "leviathan", result.getSkill(HiscoreSkill.THE_LEVIATHAN));
+        putBossKillCount(snapshot, "whisperer", result.getSkill(HiscoreSkill.THE_WHISPERER));
+        putBossKillCount(snapshot, "nightmare", result.getSkill(HiscoreSkill.NIGHTMARE));
+        putBossKillCount(snapshot, "phosanis-nightmare", result.getSkill(HiscoreSkill.PHOSANIS_NIGHTMARE));
+        putBossKillCount(snapshot, "corporeal-beast", result.getSkill(HiscoreSkill.CORPOREAL_BEAST));
+        putBossKillCount(snapshot, "yama", result.getSkill(HiscoreSkill.YAMA));
+        putBossKillCount(snapshot, "doom-of-mokhaiotl", result.getSkill(HiscoreSkill.DOOM_OF_MOKHAIOTL));
+        putBossKillCount(snapshot, "shellbane-gryphon", result.getSkill(HiscoreSkill.SHELLBANE_GRYPHON));
+        putBossKillCountSum(snapshot, "cox",
+            result.getSkill(HiscoreSkill.CHAMBERS_OF_XERIC),
+            result.getSkill(HiscoreSkill.CHAMBERS_OF_XERIC_CHALLENGE_MODE));
+        putBossKillCountSum(snapshot, "tob",
+            result.getSkill(HiscoreSkill.THEATRE_OF_BLOOD),
+            result.getSkill(HiscoreSkill.THEATRE_OF_BLOOD_HARD_MODE));
+        putBossKillCountSum(snapshot, "toa",
+            result.getSkill(HiscoreSkill.TOMBS_OF_AMASCUT),
+            result.getSkill(HiscoreSkill.TOMBS_OF_AMASCUT_EXPERT));
+        putBossKillCount(snapshot, "nex", result.getSkill(HiscoreSkill.NEX));
+        putBossKillCount(snapshot, "inferno", result.getSkill(HiscoreSkill.TZKAL_ZUK));
+        putBossKillCount(snapshot, "colosseum", result.getSkill(HiscoreSkill.SOL_HEREDIT));
+    }
+
+    private void putBossKillCount(AccountSnapshot snapshot, String bossId, Skill skill)
+    {
+        if (skill != null && skill.getLevel() >= 0)
+        {
+            snapshot.getBossKillCounts().put(bossId, skill.getLevel());
+        }
+    }
+
+    private void putBossKillCountSum(AccountSnapshot snapshot, String bossId, Skill... skills)
+    {
+        int total = 0;
+        boolean published = false;
+        for (Skill skill : skills)
+        {
+            if (skill != null && skill.getLevel() >= 0)
+            {
+                total += skill.getLevel();
+                published = true;
+            }
+        }
+        if (published)
+        {
+            snapshot.getBossKillCounts().put(bossId, total);
+        }
     }
 
     @Subscribe

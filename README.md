@@ -9,6 +9,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - Automatic quest completion syncing
 - One-click account snapshot syncing
 - Skill level progression updates
+- Official hiscore boss KC syncing for the website Luck Tracker
 - Opt-in Group Storage snapshots for the private website Group Bank
 - Live player location updates
 - Privacy-aware Social Hub presence for approved friends

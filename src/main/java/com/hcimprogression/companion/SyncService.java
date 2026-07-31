@@ -290,6 +290,15 @@ public class SyncService {
         }
         clueCounts.append('}');
 
+        StringBuilder bossKillCounts = new StringBuilder("{");
+        boolean firstBoss = true;
+        for (Map.Entry<String, Integer> entry : snapshot.getBossKillCounts().entrySet()) {
+            if (!firstBoss) bossKillCounts.append(',');
+            firstBoss = false;
+            bossKillCounts.append('"').append(escape(entry.getKey())).append("\":").append(entry.getValue());
+        }
+        bossKillCounts.append('}');
+
         StringBuilder collectionLog = new StringBuilder("{");
         boolean firstLog = true;
         for (Map.Entry<String, Integer> entry : snapshot.getCollectionLog().entrySet()) {
@@ -326,6 +335,8 @@ public class SyncService {
                 + quests
                 + ",\"clueCounts\":"
                 + clueCounts
+                + ",\"bossKillCounts\":"
+                + bossKillCounts
                 + ",\"collectionLog\":"
                 + collectionLog
                 + ",\"collectionLogItems\":"
@@ -348,7 +359,8 @@ public class SyncService {
                     callback.accept(
                             new AccountSyncResult(
                                     intValue(body, "questUpdates"),
-                                    intValue(body, "taskUpdates")
+                                    intValue(body, "taskUpdates"),
+                                    intValue(body, "bossKillCountCount")
                             ),
                             null
                     );
@@ -536,12 +548,15 @@ public class SyncService {
     public static class AccountSyncResult {
         private final int questUpdates;
         private final int taskUpdates;
+        private final int bossKillCountCount;
 
         public AccountSyncResult(
                 int questUpdates,
-                int taskUpdates) {
+                int taskUpdates,
+                int bossKillCountCount) {
             this.questUpdates = questUpdates;
             this.taskUpdates = taskUpdates;
+            this.bossKillCountCount = bossKillCountCount;
         }
 
         public int getQuestUpdates() {
@@ -550,6 +565,10 @@ public class SyncService {
 
         public int getTaskUpdates() {
             return taskUpdates;
+        }
+
+        public int getBossKillCountCount() {
+            return bossKillCountCount;
         }
     }
 
