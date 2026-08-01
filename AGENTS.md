@@ -56,6 +56,14 @@
 - `build.gradle` must target Java 11** and match the structure of the example-plugin template.
 - Retain a permissive license, such as BSD-2.
 
+## Plugin Hub Release Hash
+
+- Companion source releases are not complete until the RuneLite Plugin Hub manifest points at the exact pushed companion commit.
+- The repository workflow `.github/workflows/update-plugin-hub-hash.yml` performs this update after every push to `main`.
+- Keep the target manifest at `jakebutler83/plugin-hub`, branch `add-hcim-progression-companion`, file `plugins/hcim-progression-companion` unless the active Plugin Hub submission moves.
+- Never insert a local-only commit hash into Plugin Hub. The workflow runs only after GitHub has accepted the companion commit.
+- If the workflow is unavailable, explicitly report that the Plugin Hub hash still needs updating; do not describe a companion release as submitted or approval-ready while the manifest is stale.
+
 ## Resources & Assets
 
 - Optimize icon PNGs. Java loads images at full resolution in memory (`width × height × 4` bytes), so a seemingly small file can use significant memory.

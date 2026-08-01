@@ -48,6 +48,12 @@ Group Storage syncing is read-only and disabled by default. RuneLite uploads a p
 
 Weekly loot tracking is also disabled by default. When enabled, the companion records the current Grand Exchange value of NPC loot locally. Progression Path receives only cumulative value and loot-pile totals during a manual Account Sync, then calculates the gain since the previous compatible sync. It does not sell, alch, drop, or otherwise interact with any item.
 
+## Automatic Plugin Hub hash updates
+
+Every push to `main` runs `.github/workflows/update-plugin-hub-hash.yml`. It updates the companion commit in the `add-hcim-progression-companion` branch of `jakebutler83/plugin-hub`, so the existing Plugin Hub submission always tests the newest pushed source.
+
+One-time setup: add a companion repository Actions secret named `PLUGIN_HUB_TOKEN`. Use a fine-grained GitHub token limited to the `jakebutler83/plugin-hub` repository with **Contents: Read and write** permission. Until this secret exists, the workflow exits safely without changing either repository.
+
 No gameplay automation is performed.
 
 No account passwords or RuneLite credentials are transmitted.

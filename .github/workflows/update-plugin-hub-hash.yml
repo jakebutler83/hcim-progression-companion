@@ -1,0 +1,71 @@
+name: Update Plugin Hub commit hash
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hcim-progression-plugin-hub-hash
+  cancel-in-progress: true
+
+jobs:
+  update-plugin-hub:
+    if: github.repository == 'jakebutler83/hcim-progression-companion'
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_HUB_TOKEN: ${{ secrets.PLUGIN_HUB_TOKEN }}
+      PLUGIN_HUB_BRANCH: add-hcim-progression-companion
+      PLUGIN_MANIFEST: plugins/hcim-progression-companion
+    steps:
+      - name: Explain missing one-time setup
+        if: env.PLUGIN_HUB_TOKEN == ''
+        run: |
+          echo "PLUGIN_HUB_TOKEN is not configured; the companion build is unaffected."
+          echo "Add a fine-grained token with Contents: Read and write access to jakebutler83/plugin-hub."
+          echo "Repository secret name: PLUGIN_HUB_TOKEN"
+          echo "## Plugin Hub hash update skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "Add the repository secret PLUGIN_HUB_TOKEN to enable automatic updates." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out Plugin Hub submission branch
+        if: env.PLUGIN_HUB_TOKEN != ''
+        uses: actions/checkout@v6
+        with:
+          repository: jakebutler83/plugin-hub
+          ref: ${{ env.PLUGIN_HUB_BRANCH }}
+          token: ${{ env.PLUGIN_HUB_TOKEN }}
+          path: plugin-hub
+          fetch-depth: 0
+
+      - name: Update companion commit
+        if: env.PLUGIN_HUB_TOKEN != ''
+        working-directory: plugin-hub
+        env:
+          COMPANION_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -f "$PLUGIN_MANIFEST"
+          grep -Fxq "repository=https://github.com/jakebutler83/hcim-progression-companion.git" "$PLUGIN_MANIFEST"
+          sed -i -E "s/^commit=[0-9a-f]{40}$/commit=${COMPANION_SHA}/" "$PLUGIN_MANIFEST"
+          grep -Fxq "commit=${COMPANION_SHA}" "$PLUGIN_MANIFEST"
+
+      - name: Commit and push Plugin Hub hash
+        if: env.PLUGIN_HUB_TOKEN != ''
+        working-directory: plugin-hub
+        env:
+          COMPANION_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "$PLUGIN_MANIFEST"; then
+            echo "Plugin Hub already points at ${COMPANION_SHA}."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PLUGIN_MANIFEST"
+          git commit -m "Update HCIM Progression Companion commit to ${COMPANION_SHA:0:12}"
+          git push origin "HEAD:${PLUGIN_HUB_BRANCH}"
