@@ -328,6 +328,18 @@ public class SyncService {
                 + "\"questPoints\":"
                 + snapshot.getQuestPoints()
                 + ","
+                + "\"lootTrackingEnabled\":"
+                + snapshot.isLootTrackingEnabled()
+                + ","
+                + "\"lootValueTotal\":"
+                + snapshot.getLootValueTotal()
+                + ","
+                + "\"lootDropCountTotal\":"
+                + snapshot.getLootDropCountTotal()
+                + ","
+                + "\"lootTrackedSince\":"
+                + snapshot.getLootTrackedSince()
+                + ","
                 + "\"skills\":"
                 + skills
                 + ","

@@ -10,6 +10,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - One-click account snapshot syncing
 - Skill level progression updates
 - Official hiscore boss KC syncing for the website Luck Tracker
+- Brutus KC support through RuneLite's current official hiscore catalog
 - Opt-in Group Storage snapshots for the private website Group Bank
 - Live player location updates
 - Privacy-aware Social Hub presence for approved friends
@@ -29,8 +30,9 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 7. Leave **Share Social Hub presence** enabled to appear to approved friends.
 8. Leave **Sync clan roster** enabled to populate the Clan Hall.
 9. Leave **Sync clan events** enabled, then open **Clan Settings → Events** in game whenever you want to import or refresh the clan calendar.
-10. Enable **Sync Group Storage**, then open the shared storage in game whenever you want to refresh the website Group Bank.
-11. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
+10. Enable **Track NPC loot value** if you want estimated loot gains in Weekly Snapshot. The total is sent only when you manually press **Sync Account**.
+11. Enable **Sync Group Storage**, then open the shared storage in game whenever you want to refresh the website Group Bank.
+12. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
@@ -43,6 +45,8 @@ Social presence is visible only to approved Progression Path friends and is filt
 Clan event syncing is read-only: it imports the visible in-game calendar into Progression Path but never creates or edits RuneScape clan events.
 
 Group Storage syncing is read-only and disabled by default. RuneLite uploads a private last-seen item snapshot only while the shared storage interface is open; it never deposits, withdraws, or changes any item.
+
+Weekly loot tracking is also disabled by default. When enabled, the companion records the current Grand Exchange value of NPC loot locally. Progression Path receives only cumulative value and loot-pile totals during a manual Account Sync, then calculates the gain since the previous compatible sync. It does not sell, alch, drop, or otherwise interact with any item.
 
 No gameplay automation is performed.
 

@@ -22,6 +22,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreEndpoint;
 import net.runelite.client.hiscore.HiscoreResult;
@@ -36,8 +37,8 @@ import net.runelite.client.callback.ClientThread;
 
 @PluginDescriptor(
     name = "HCIM Progression Companion",
-    description = "Connects RuneLite to Progression Path for progress, Group Storage, location, Social Hub presence, clan rosters, and clan events.",
-    tags = {"hcim", "group ironman", "progression", "group storage", "bank", "location", "social", "friends", "equipment", "clan", "events"}
+    description = "Connects RuneLite to Progression Path for progress, Group Storage, weekly gains, location, Social Hub presence, clan rosters, and clan events.",
+    tags = {"hcim", "group ironman", "progression", "group storage", "bank", "weekly", "loot", "location", "social", "friends", "equipment", "clan", "events"}
 )
 public class HcimProgressionCompanionPlugin extends Plugin
 {
@@ -60,6 +61,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final AccountSnapshotService accountSnapshotService = new AccountSnapshotService();
     private final CollectionLogCaptureService collectionLogCaptureService = new CollectionLogCaptureService();
     private final GroupStorageSnapshotService groupStorageSnapshotService = new GroupStorageSnapshotService();
+    private final WeeklyLootTrackerService weeklyLootTrackerService = new WeeklyLootTrackerService();
     @Inject private SyncService syncService;
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
@@ -179,6 +181,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     });
                     return;
                 }
+                weeklyLootTrackerService.applyTo(
+                    snapshot,
+                    configManager,
+                    config.weeklyLootTrackingEnabled()
+                );
 
                 // Clue completion totals are not reliably present in Collection Log widgets.
                 // RuneLite itself uses the official hiscores for !clues, so use the same source.
@@ -248,6 +255,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private void applyHiscoreBossKillCounts(AccountSnapshot snapshot, HiscoreResult result)
     {
         putBossKillCount(snapshot, "maggot-king", result.getSkill(HiscoreSkill.MAGGOT_KING));
+        putBossKillCount(snapshot, "brutus", result.getSkill(HiscoreSkill.BRUTUS));
         putBossKillCount(snapshot, "bryophyta", result.getSkill(HiscoreSkill.BRYOPHYTA));
         putBossKillCount(snapshot, "obor", result.getSkill(HiscoreSkill.OBOR));
         putBossKillCount(snapshot, "scurrius", result.getSkill(HiscoreSkill.SCURRIUS));
@@ -346,6 +354,16 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             snapshot.getBossKillCounts().put(bossId, total);
         }
+    }
+
+    @Subscribe
+    public void onNpcLootReceived(NpcLootReceived event)
+    {
+        if (!config.weeklyLootTrackingEnabled())
+        {
+            return;
+        }
+        weeklyLootTrackerService.recordNpcLoot(event.getItems(), itemManager, configManager);
     }
 
     @Subscribe

@@ -15,6 +15,10 @@ public class AccountSnapshot
     private final Map<String, Integer> bossKillCounts = new LinkedHashMap<>();
     private final Map<String, Integer> collectionLog = new LinkedHashMap<>();
     private final List<CollectionLogItemSnapshot> collectionLogItems = new ArrayList<>();
+    private boolean lootTrackingEnabled;
+    private long lootValueTotal;
+    private long lootDropCountTotal;
+    private long lootTrackedSince;
 
     public String getPlayerName() { return playerName; }
     public void setPlayerName(String playerName) { this.playerName = playerName; }
@@ -27,6 +31,14 @@ public class AccountSnapshot
     public Map<String, Integer> getBossKillCounts() { return bossKillCounts; }
     public Map<String, Integer> getCollectionLog() { return collectionLog; }
     public List<CollectionLogItemSnapshot> getCollectionLogItems() { return collectionLogItems; }
+    public boolean isLootTrackingEnabled() { return lootTrackingEnabled; }
+    public void setLootTrackingEnabled(boolean lootTrackingEnabled) { this.lootTrackingEnabled = lootTrackingEnabled; }
+    public long getLootValueTotal() { return lootValueTotal; }
+    public void setLootValueTotal(long lootValueTotal) { this.lootValueTotal = lootValueTotal; }
+    public long getLootDropCountTotal() { return lootDropCountTotal; }
+    public void setLootDropCountTotal(long lootDropCountTotal) { this.lootDropCountTotal = lootDropCountTotal; }
+    public long getLootTrackedSince() { return lootTrackedSince; }
+    public void setLootTrackedSince(long lootTrackedSince) { this.lootTrackedSince = lootTrackedSince; }
 
     public static class CollectionLogItemSnapshot
     {
