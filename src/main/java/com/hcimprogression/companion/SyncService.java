@@ -429,6 +429,9 @@ public class SyncService {
                 + "\"lootTrackedSince\":"
                 + snapshot.getLootTrackedSince()
                 + ","
+                + "\"lastTearsVisitAt\":"
+                + snapshot.getLastTearsVisitAt()
+                + ","
                 + "\"skills\":"
                 + skills
                 + ","

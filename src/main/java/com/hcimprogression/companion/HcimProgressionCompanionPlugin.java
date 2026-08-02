@@ -12,6 +12,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.ClanChannelChanged;
 import net.runelite.api.events.ClanMemberJoined;
 import net.runelite.api.events.ClanMemberLeft;
@@ -55,6 +56,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long LIVE_CHANGE_COOLDOWN_MILLIS = 15_000L;
     private static final long CLAN_HEARTBEAT_MILLIS = 30 * 60_000L;
     private static final long CLAN_CHANGE_COOLDOWN_MILLIS = 5 * 60_000L;
+    private static final long TEARS_SYNC_COOLDOWN_MILLIS = 60_000L;
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -99,6 +101,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private int personalBankDebounceTicks;
     private volatile boolean personalBankSyncInFlight;
     private volatile String activePlayerKey;
+    private volatile long lastTearsVisitAt;
+    private volatile long lastTearsSyncTriggeredAt;
+    private volatile String tearsVisitAccountKey = "";
 
     @Override
     protected void startUp()
@@ -127,6 +132,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         personalBankDebounceTicks = 0;
         personalBankSyncInFlight = false;
         activePlayerKey = null;
+        lastTearsVisitAt = 0L;
+        lastTearsSyncTriggeredAt = 0L;
+        tearsVisitAccountKey = "";
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
@@ -227,6 +235,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
                         if (panel != null) panel.showAccountSyncError("Could not read account data");
                     });
                     return;
+                }
+                if (accountKey(snapshot.getPlayerName()).equals(tearsVisitAccountKey))
+                {
+                    snapshot.setLastTearsVisitAt(lastTearsVisitAt);
                 }
                 weeklyLootTrackerService.applyTo(
                     snapshot,
@@ -401,6 +413,39 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             snapshot.getBossKillCounts().put(bossId, total);
         }
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event)
+    {
+        String message = event.getMessage();
+        if (message == null)
+        {
+            return;
+        }
+
+        String normalized = message.replaceAll("<[^>]+>", " ").toLowerCase(Locale.ROOT);
+        if (!normalized.contains("tears of guthix") || !normalized.contains("completed"))
+        {
+            return;
+        }
+
+        String playerName = currentPlayerName();
+        String accountKey = accountKey(playerName);
+        if (accountKey.isEmpty())
+        {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now - lastTearsSyncTriggeredAt < TEARS_SYNC_COOLDOWN_MILLIS)
+        {
+            return;
+        }
+        tearsVisitAccountKey = accountKey;
+        lastTearsVisitAt = now;
+        lastTearsSyncTriggeredAt = now;
+        syncAccountNow();
     }
 
     @Subscribe
