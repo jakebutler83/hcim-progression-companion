@@ -47,6 +47,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel clanRosterValue = new JLabel("Waiting");
     private final JLabel clanEventsValue = new JLabel("Open Clan Events");
     private final JLabel groupStorageValue = new JLabel("Disabled");
+    private final JLabel personalBankValue = new JLabel("Disabled");
     private final JLabel accountSyncStatusValue = new JLabel("Never synced");
     private final JLabel questsUpdatedValue = new JLabel("—");
     private final JLabel tasksUpdatedValue = new JLabel("—");
@@ -146,6 +147,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         liveSyncBody.add(createRow("Clan roster", clanRosterValue));
         liveSyncBody.add(createRow("Clan events", clanEventsValue));
         liveSyncBody.add(createRow("Group storage", groupStorageValue));
+        liveSyncBody.add(createRow("Personal bank", personalBankValue));
         content.add(createCollapsibleCard("LIVE SYNC", GOLD, liveSyncBody, true));
         content.add(Box.createVerticalStrut(8));
 
@@ -518,6 +520,37 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         groupStorageValue.setForeground(WARNING);
     }
 
+    public void showPersonalBankWaiting()
+    {
+        personalBankValue.setText("Open your bank");
+        personalBankValue.setForeground(WARNING);
+    }
+
+    public void showPersonalBankSyncing(int occupiedSlots)
+    {
+        personalBankValue.setText("Syncing " + occupiedSlots + " slots...");
+        personalBankValue.setForeground(WARNING);
+    }
+
+    public void showPersonalBankSuccess(int occupiedSlots)
+    {
+        personalBankValue.setText(occupiedSlots + " slots - " + LocalTime.now().format(TIME_FORMAT));
+        personalBankValue.setForeground(SUCCESS);
+        personalBankValue.setToolTipText("The website now has the latest Personal Bank snapshot.");
+    }
+
+    public void showPersonalBankError(String message)
+    {
+        personalBankValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        personalBankValue.setForeground(ERROR);
+    }
+
+    public void showPersonalBankDisabled()
+    {
+        personalBankValue.setText("Disabled in settings");
+        personalBankValue.setForeground(WARNING);
+    }
+
     public void showSyncSuccess()
     {
         locationSyncValue.setText("Just now");
@@ -560,6 +593,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         clanRosterValue.setForeground(WARNING);
         groupStorageValue.setText("Waiting for login");
         groupStorageValue.setForeground(WARNING);
+        personalBankValue.setText("Waiting for login");
+        personalBankValue.setForeground(WARNING);
         clanEventsValue.setText("Open Clan Settings → Events");
         clanEventsValue.setForeground(WARNING);
     }

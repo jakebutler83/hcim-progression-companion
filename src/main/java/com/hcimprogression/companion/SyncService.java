@@ -477,6 +477,24 @@ public class SyncService {
                 });
     }
 
+    public void syncPersonalBank(
+            String apiBaseUrl,
+            String token,
+            PersonalBankSnapshot snapshot,
+            Consumer<String> callback) {
+        post(apiBaseUrl, "companion-personal-bank-sync", token, gson.toJson(snapshot))
+                .whenComplete((body, error) ->
+                {
+                    if (error != null) {
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
     private CompletableFuture<String> post(
             String baseUrl,
             String functionName,

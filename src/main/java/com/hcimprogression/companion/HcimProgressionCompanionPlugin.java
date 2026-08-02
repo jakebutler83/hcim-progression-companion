@@ -40,8 +40,8 @@ import net.runelite.client.callback.ClientThread;
 
 @PluginDescriptor(
     name = "Progression Path Companion",
-    description = "Connects RuneLite accounts to Progression Path for progress, weekly gains, boss and clue history, Group Storage, location, and social features.",
-    tags = {"progression", "tracker", "account", "main", "ironman", "hcim", "group ironman", "group storage", "weekly", "loot", "location", "social", "clan"}
+    description = "Connects RuneLite accounts to Progression Path for progress, weekly gains, bank snapshots, boss and clue history, location, and social features.",
+    tags = {"progression", "tracker", "account", "main", "ironman", "hcim", "group ironman", "bank", "group storage", "weekly", "loot", "location", "social", "clan"}
 )
 public class HcimProgressionCompanionPlugin extends Plugin
 {
@@ -71,6 +71,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final AccountSnapshotService accountSnapshotService = new AccountSnapshotService();
     private final CollectionLogCaptureService collectionLogCaptureService = new CollectionLogCaptureService();
     private final GroupStorageSnapshotService groupStorageSnapshotService = new GroupStorageSnapshotService();
+    private final PersonalBankSnapshotService personalBankSnapshotService = new PersonalBankSnapshotService();
     private final WeeklyLootTrackerService weeklyLootTrackerService = new WeeklyLootTrackerService();
     @Inject private SyncService syncService;
     private HcimProgressionCompanionPanel panel;
@@ -93,6 +94,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private boolean groupStorageDirty;
     private int groupStorageDebounceTicks;
     private volatile boolean groupStorageSyncInFlight;
+    private PersonalBankSnapshot pendingPersonalBankSnapshot;
+    private boolean personalBankDirty;
+    private int personalBankDebounceTicks;
+    private volatile boolean personalBankSyncInFlight;
     private volatile String activePlayerKey;
 
     @Override
@@ -117,6 +122,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         groupStorageDirty = false;
         groupStorageDebounceTicks = 0;
         groupStorageSyncInFlight = false;
+        pendingPersonalBankSnapshot = null;
+        personalBankDirty = false;
+        personalBankDebounceTicks = 0;
+        personalBankSyncInFlight = false;
         activePlayerKey = null;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
 
@@ -132,6 +141,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         updateActiveAccountLink(currentPlayerName());
         if (config.groupStorageSyncEnabled()) panel.showGroupStorageWaiting();
         else panel.showGroupStorageDisabled();
+        if (config.personalBankSyncEnabled()) panel.showPersonalBankWaiting();
+        else panel.showPersonalBankDisabled();
 
         logger.info("HCIM Progression Companion started.");
     }
@@ -148,6 +159,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         pendingGroupStorageSnapshot = null;
         groupStorageDirty = false;
         groupStorageSyncInFlight = false;
+        pendingPersonalBankSnapshot = null;
+        personalBankDirty = false;
+        personalBankSyncInFlight = false;
         liveSyncInFlight = false;
         clanSyncInFlight = false;
         liveBackoff.reset();
@@ -428,6 +442,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (event.getContainerId() == InventoryID.BANK
+            && client.getTopLevelInterfaceId() == InterfaceID.BANKMAIN)
+        {
+            capturePersonalBank(event.getItemContainer());
+        }
+
         if (event.getContainerId() == InventoryID.INV_GROUP_TEMP
             && client.getTopLevelInterfaceId() == InterfaceID.SHARED_BANK)
         {
@@ -445,6 +465,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event)
     {
+        if (event.getGroupId() == InterfaceID.BANKMAIN)
+        {
+            capturePersonalBank(client.getItemContainer(InventoryID.BANK));
+        }
+
         if (event.getGroupId() == InterfaceID.SHARED_BANK)
         {
             captureGroupStorage(client.getItemContainer(InventoryID.INV_GROUP_TEMP));
@@ -482,6 +507,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         handlePendingGroupStorage();
+        handlePendingPersonalBank();
 
         tickCounter++;
         if (tickCounter < BASE_SYNC_TICKS) return;
@@ -709,6 +735,97 @@ public class HcimProgressionCompanionPlugin extends Plugin
         });
     }
 
+    private void capturePersonalBank(ItemContainer container)
+    {
+        if (!config.personalBankSyncEnabled())
+        {
+            pendingPersonalBankSnapshot = null;
+            personalBankDirty = false;
+            if (panel != null) SwingUtilities.invokeLater(panel::showPersonalBankDisabled);
+            return;
+        }
+
+        if (deviceToken().isEmpty())
+        {
+            if (panel != null)
+            {
+                SwingUtilities.invokeLater(() -> panel.showPersonalBankError("Link companion first"));
+            }
+            return;
+        }
+
+        PersonalBankSnapshot snapshot =
+            personalBankSnapshotService.createSnapshot(client, itemManager, container);
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        pendingPersonalBankSnapshot = snapshot;
+        personalBankDirty = true;
+        personalBankDebounceTicks = 2;
+    }
+
+    private void handlePendingPersonalBank()
+    {
+        if (!config.personalBankSyncEnabled())
+        {
+            pendingPersonalBankSnapshot = null;
+            personalBankDirty = false;
+            return;
+        }
+
+        if (!personalBankDirty || personalBankSyncInFlight)
+        {
+            return;
+        }
+
+        if (personalBankDebounceTicks > 0)
+        {
+            personalBankDebounceTicks--;
+            return;
+        }
+
+        String token = deviceToken();
+        if (token.isEmpty())
+        {
+            personalBankDirty = false;
+            if (panel != null)
+            {
+                SwingUtilities.invokeLater(() -> panel.showPersonalBankError("Link companion first"));
+            }
+            return;
+        }
+
+        PersonalBankSnapshot snapshot = pendingPersonalBankSnapshot;
+        if (snapshot == null)
+        {
+            personalBankDirty = false;
+            return;
+        }
+
+        personalBankDirty = false;
+        personalBankSyncInFlight = true;
+        int occupiedSlots = snapshot.getOccupiedSlots();
+        if (panel != null)
+        {
+            SwingUtilities.invokeLater(() -> panel.showPersonalBankSyncing(occupiedSlots));
+        }
+
+        syncService.syncPersonalBank(config.apiBaseUrl(), token, snapshot, error -> {
+            personalBankSyncInFlight = false;
+            SwingUtilities.invokeLater(() -> {
+                if (panel == null) return;
+                if (error == null) panel.showPersonalBankSuccess(occupiedSlots);
+                else panel.showPersonalBankError(error);
+            });
+            if (error != null)
+            {
+                logger.debug("Personal Bank sync failed: {}", error);
+            }
+        });
+    }
+
     private void syncClanPresence(String token)
     {
         long now = System.currentTimeMillis();
@@ -922,6 +1039,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         collectionLogCaptureService.reset();
         pendingGroupStorageSnapshot = null;
         groupStorageDirty = false;
+        pendingPersonalBankSnapshot = null;
+        personalBankDirty = false;
         lastLiveFingerprint = "";
         lastClanFingerprint = "";
         lastClanEventsFingerprint = "";

@@ -71,11 +71,23 @@ public interface HcimProgressionCompanionConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "personalBankSyncEnabled",
+        name = "Sync Personal Bank (Solo)",
+        description = "Uploads your own bank to your private Solo Adventurer journal whenever you open or change the normal bank interface.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
+        position = 5
+    )
+    default boolean personalBankSyncEnabled()
+    {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "weeklyLootTrackingEnabled",
         name = "Track NPC loot value",
         description = "Keeps a local running GE-value total for NPC loot. The total is sent to your private Progression Path group only when you press Sync Account.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 5
+        position = 6
     )
     default boolean weeklyLootTrackingEnabled()
     {
@@ -86,7 +98,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "apiBaseUrl",
         name = "Website API URL",
         description = "Progression Path API root. Keep the default unless your website administrator provides a dedicated Cloud Run URL.",
-        position = 6
+        position = 7
     )
     default String apiBaseUrl()
     {
