@@ -15,7 +15,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - Change-driven live player location updates with a five-minute heartbeat
 - Privacy-aware Social Hub presence for approved friends
 - Live world, broad region, activity, combat level, and worn equipment
-- Private RuneScape clan roster, rank, online-world, and in-game clan-event syncing, with roster uploads only when the roster changes
+- Private RuneScape clan roster, rank, online-world, and in-game clan-event syncing, with roster uploads only when the roster changes and no more than once every five minutes
 - Secure per-player connection using a one-time website link code
 - Supports multiple HCIM groups independently
 

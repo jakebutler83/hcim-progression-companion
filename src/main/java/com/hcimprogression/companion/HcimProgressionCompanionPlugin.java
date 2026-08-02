@@ -51,6 +51,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long LIVE_HEARTBEAT_MILLIS = 5 * 60_000L;
     private static final long LIVE_CHANGE_COOLDOWN_MILLIS = 15_000L;
     private static final long CLAN_HEARTBEAT_MILLIS = 30 * 60_000L;
+    private static final long CLAN_CHANGE_COOLDOWN_MILLIS = 5 * 60_000L;
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -81,6 +82,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile boolean clanSyncInFlight;
     private final SyncBackoff liveBackoff = new SyncBackoff();
     private final SyncBackoff clanBackoff = new SyncBackoff();
+    private final SyncCooldown clanChangeCooldown = new SyncCooldown(CLAN_CHANGE_COOLDOWN_MILLIS);
     private volatile boolean clanEventsSyncInFlight;
     private volatile String lastClanEventsFingerprint = "";
     private boolean clanEventsWidgetOpen;
@@ -103,6 +105,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         clanSyncInFlight = false;
         liveBackoff.reset();
         clanBackoff.reset();
+        clanChangeCooldown.reset();
         clanEventsSyncInFlight = false;
         lastClanEventsFingerprint = "";
         clanEventsWidgetOpen = false;
@@ -146,6 +149,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         clanSyncInFlight = false;
         liveBackoff.reset();
         clanBackoff.reset();
+        clanChangeCooldown.reset();
         logger.info("HCIM Progression Companion stopped.");
     }
 
@@ -444,20 +448,20 @@ public class HcimProgressionCompanionPlugin extends Plugin
     {
         if (!event.isGuest())
         {
-            nextClanSyncAt = 0L;
+            scheduleClanChangeSync();
         }
     }
 
     @Subscribe
     public void onClanMemberJoined(ClanMemberJoined event)
     {
-        nextClanSyncAt = 0L;
+        scheduleClanChangeSync();
     }
 
     @Subscribe
     public void onClanMemberLeft(ClanMemberLeft event)
     {
-        nextClanSyncAt = 0L;
+        scheduleClanChangeSync();
     }
 
     @Subscribe
@@ -730,6 +734,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             if (error == null)
             {
                 clanBackoff.recordSuccess();
+                clanChangeCooldown.recordSuccess(completedAt);
                 lastClanFingerprint = fingerprint;
                 nextClanSyncAt = completedAt + CLAN_HEARTBEAT_MILLIS + randomJitter(60_000L);
             }
@@ -753,6 +758,16 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 logger.debug("Social clan roster sync failed: {}", error);
             }
         });
+    }
+
+    private void scheduleClanChangeSync()
+    {
+        long now = System.currentTimeMillis();
+        long scheduledAt = clanChangeCooldown.nextAllowedAt(now, clanBackoff.getRetryAtMillis());
+        if (nextClanSyncAt <= 0L || scheduledAt < nextClanSyncAt)
+        {
+            nextClanSyncAt = scheduledAt;
+        }
     }
 
     private String clanFingerprint(SocialClanSnapshot snapshot)
