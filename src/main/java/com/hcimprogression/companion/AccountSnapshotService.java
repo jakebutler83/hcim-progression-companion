@@ -2,6 +2,8 @@ package com.hcimprogression.companion;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import net.runelite.api.Client;
 import net.runelite.api.Player;
 import net.runelite.api.Quest;
@@ -10,10 +12,14 @@ import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.EquipmentInventorySlot;
+import net.runelite.api.Item;
+import net.runelite.client.game.ItemManager;
 
 public class AccountSnapshotService
 {
-    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker)
+    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker, ItemManager itemManager)
     {
         Player player = client.getLocalPlayer();
         if (player == null) return null;
@@ -56,7 +62,22 @@ public class AccountSnapshotService
         collectionLogCaptureService.applyTo(snapshot);
         if (birdhouseTracker != null) snapshot.setBirdhouses(birdhouseTracker.snapshot());
         snapshot.setSlayer(readSlayer(client));
+        captureWornEquipment(client, itemManager, snapshot);
         return snapshot;
+    }
+
+    private void captureWornEquipment(Client client, ItemManager itemManager, AccountSnapshot snapshot)
+    {
+        if (itemManager == null || client.getItemContainer(InventoryID.WORN) == null) return;
+        Item[] items = client.getItemContainer(InventoryID.WORN).getItems();
+        for (Map.Entry<String, EquipmentInventorySlot> entry : new LinkedHashMap<String, EquipmentInventorySlot>() {{
+            put("head", EquipmentInventorySlot.HEAD); put("cape", EquipmentInventorySlot.CAPE); put("amulet", EquipmentInventorySlot.AMULET); put("weapon", EquipmentInventorySlot.WEAPON); put("body", EquipmentInventorySlot.BODY); put("shield", EquipmentInventorySlot.SHIELD); put("legs", EquipmentInventorySlot.LEGS); put("gloves", EquipmentInventorySlot.GLOVES); put("boots", EquipmentInventorySlot.BOOTS); put("ring", EquipmentInventorySlot.RING); put("ammo", EquipmentInventorySlot.AMMO);
+        }}.entrySet()) {
+            int index = entry.getValue().getSlotIdx();
+            if (index < 0 || index >= items.length || items[index] == null || items[index].getId() <= 0) continue;
+            String name = itemManager.getItemComposition(items[index].getId()).getName();
+            if (name != null && !name.isEmpty()) snapshot.getWornEquipment().put(entry.getKey(), name);
+        }
     }
 
     private SlayerSnapshot readSlayer(Client client)

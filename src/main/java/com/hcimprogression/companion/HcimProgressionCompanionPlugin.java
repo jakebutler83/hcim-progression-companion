@@ -242,7 +242,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     return;
                 }
 
-                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker);
+                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker, itemManager);
                 if (snapshot == null)
                 {
                     SwingUtilities.invokeLater(() ->

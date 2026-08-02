@@ -23,6 +23,7 @@ public class AccountSnapshot
     private long lastTearsVisitAt;
     private BirdhouseSnapshot birdhouses;
     private SlayerSnapshot slayer;
+    private final Map<String, String> wornEquipment = new LinkedHashMap<>();
     private TcgCollectionSnapshot tcg;
 
     public String getPlayerName() { return playerName; }
@@ -51,6 +52,7 @@ public class AccountSnapshot
     public void setBirdhouses(BirdhouseSnapshot birdhouses) { this.birdhouses = birdhouses; }
     public SlayerSnapshot getSlayer() { return slayer; }
     public void setSlayer(SlayerSnapshot slayer) { this.slayer = slayer; }
+    public Map<String, String> getWornEquipment() { return wornEquipment; }
     public TcgCollectionSnapshot getTcg() { return tcg; }
     public void setTcg(TcgCollectionSnapshot tcg) { this.tcg = tcg; }
 

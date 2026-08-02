@@ -435,6 +435,8 @@ public class SyncService {
                 + birdhousesJson(snapshot.getBirdhouses())
                 + ",\"slayer\":"
                 + slayerJson(snapshot.getSlayer())
+                + ",\"wornEquipment\":"
+                + wornEquipmentJson(snapshot.getWornEquipment())
                 + ",\"tcg\":"
                 + tcgJson(snapshot.getTcg())
                 + ","
@@ -509,6 +511,19 @@ public class SyncService {
             + snapshot.getRemaining() + ",\"points\":" + snapshot.getPoints() + ",\"streak\":"
             + snapshot.getStreak() + ",\"master\":\"" + escape(snapshot.getMaster()) + "\",\"targetId\":"
             + snapshot.getTargetId() + ",\"updatedAt\":" + snapshot.getUpdatedAt() + "}";
+    }
+
+    private String wornEquipmentJson(Map<String, String> equipment)
+    {
+        StringBuilder json = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<String, String> entry : equipment.entrySet())
+        {
+            if (!first) json.append(',');
+            first = false;
+            json.append('"').append(escape(entry.getKey())).append("\":\"").append(escape(entry.getValue())).append('"');
+        }
+        return json.append('}').toString();
     }
 
     private String tcgJson(TcgCollectionSnapshot snapshot)
