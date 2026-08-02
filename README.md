@@ -12,10 +12,10 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - Official hiscore boss KC syncing for the website Luck Tracker
 - Brutus KC support through RuneLite's current official hiscore catalog
 - Opt-in Group Storage snapshots for the private website Group Bank
-- Live player location updates
+- Change-driven live player location updates with a five-minute heartbeat
 - Privacy-aware Social Hub presence for approved friends
 - Live world, broad region, activity, combat level, and worn equipment
-- Private RuneScape clan roster, rank, online-world, and in-game clan-event syncing
+- Private RuneScape clan roster, rank, online-world, and in-game clan-event syncing, with roster uploads only when the roster changes
 - Secure per-player connection using a one-time website link code
 - Supports multiple HCIM groups independently
 
@@ -27,18 +27,22 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 4. Generate a one-time companion link code.
 5. Enter the code in the RuneLite panel.
 6. Click **Sync Account Now** to upload current skills and completed quests.
-7. Leave **Share Social Hub presence** enabled to appear to approved friends.
-8. Leave **Sync clan roster** enabled to populate the Clan Hall.
-9. Leave **Sync clan events** enabled, then open **Clan Settings → Events** in game whenever you want to import or refresh the clan calendar.
+7. Enable **Share Social Hub presence** to appear to approved friends.
+8. Enable **Sync clan roster** to populate the Clan Hall.
+9. Enable **Sync clan events**, then open **Clan Settings → Events** in game whenever you want to import or refresh the clan calendar.
 10. Enable **Track NPC loot value** if you want estimated loot gains in Weekly Snapshot. The total is sent only when you manually press **Sync Account**.
 11. Enable **Sync Group Storage**, then open the shared storage in game whenever you want to refresh the website Group Bank.
 12. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
+Live location and Social Hub presence share one request, refresh every five minutes, and update earlier after meaningful world, region, activity, equipment, or sharing changes. Randomized timing prevents large groups of clients from syncing together, and network failures use exponential retry backoff. Manual Account Sync remains available whenever skills, quests, boss KC, clues, or Weekly Snapshot data should update immediately.
+
 ## Privacy
 
 The plugin communicates only with the configured Progression Path service using a private linked-device token.
+
+The production API is hosted at `https://hcim-companion-api-973141269474.us-central1.run.app`. The previous Netlify function URL remains a rollback option during the v10.29.0 transition.
 
 Social presence is visible only to approved Progression Path friends and is filtered by the website privacy controls. Exact location is disabled by default, and Wilderness safety can suppress exact coordinates.
 

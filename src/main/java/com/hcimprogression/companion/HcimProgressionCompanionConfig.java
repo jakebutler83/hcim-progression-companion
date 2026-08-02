@@ -13,22 +13,24 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "socialPresenceEnabled",
         name = "Share Social Hub presence",
         description = "Shares online status, world, broad region, activity, combat level, and worn equipment with approved Progression Path friends. Website privacy settings still control each field.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 0
     )
     default boolean socialPresenceEnabled()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(
         keyName = "socialClanSyncEnabled",
         name = "Sync clan roster",
         description = "Shares your own RuneScape clan roster, ranks, online members, and worlds with your private Social Hub clan page.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 1
     )
     default boolean socialClanSyncEnabled()
     {
-        return true;
+        return false;
     }
 
 
@@ -36,17 +38,19 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "socialClanEventsSyncEnabled",
         name = "Sync clan events",
         description = "Imports the in-game Clan Settings Events list into the Progression Path clan calendar whenever you open that interface.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 2
     )
     default boolean socialClanEventsSyncEnabled()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(
         keyName = "locationSharingEnabled",
         name = "Share exact group location",
         description = "Securely shares your exact location with your HCIM Progression group and allows exact Social Hub pins when enabled on the website.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 3
     )
     default boolean locationSharingEnabled()
@@ -81,11 +85,11 @@ public interface HcimProgressionCompanionConfig extends Config
     @ConfigItem(
         keyName = "apiBaseUrl",
         name = "Website API URL",
-        description = "Your HCIM Progression website URL followed by /.netlify/functions",
+        description = "Progression Path API root. Keep the default unless your website administrator provides a dedicated Cloud Run URL.",
         position = 6
     )
     default String apiBaseUrl()
     {
-        return "https://progressionpath.netlify.app/.netlify/functions";
+        return "https://hcim-companion-api-973141269474.us-central1.run.app";
     }
 }

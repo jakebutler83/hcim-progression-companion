@@ -2,8 +2,11 @@ package com.hcimprogression.companion;
 
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.inject.Inject;
@@ -86,6 +89,80 @@ public class SyncService {
                         callback.accept(null);
                     }
                 });
+    }
+
+    public void syncLive(
+            String apiBaseUrl,
+            String token,
+            PlayerState location,
+            SocialPresenceSnapshot presence,
+            boolean locationEnabled,
+            boolean presenceEnabled,
+            Consumer<String> callback) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("locationEnabled", locationEnabled && location != null);
+        payload.put("presenceEnabled", presenceEnabled && presence != null);
+        if (locationEnabled && location != null) {
+            payload.put("location", location);
+        }
+        if (presenceEnabled && presence != null) {
+            payload.put("presence", presence);
+        }
+
+        boolean netlifyFunctions = apiBaseUrl != null && apiBaseUrl.contains("/.netlify/functions");
+        String endpoint = netlifyFunctions
+                ? "companion-live-batch"
+                : "v2/live";
+        post(apiBaseUrl, endpoint, token, gson.toJson(payload))
+                .whenComplete((body, error) ->
+                {
+                    if (error != null) {
+                        if (netlifyFunctions && friendly(error).contains("HTTP 404")) {
+                            syncLegacyLive(apiBaseUrl, token, location, presence,
+                                    locationEnabled, presenceEnabled, callback);
+                            return;
+                        }
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
+    private void syncLegacyLive(
+            String apiBaseUrl,
+            String token,
+            PlayerState location,
+            SocialPresenceSnapshot presence,
+            boolean locationEnabled,
+            boolean presenceEnabled,
+            Consumer<String> callback) {
+        int requestCount = (locationEnabled && location != null ? 1 : 0)
+                + (presenceEnabled && presence != null ? 1 : 0);
+        if (requestCount == 0) {
+            callback.accept("No live-sync features were enabled.");
+            return;
+        }
+
+        AtomicInteger remaining = new AtomicInteger(requestCount);
+        AtomicReference<String> firstError = new AtomicReference<>();
+        Consumer<String> completion = error -> {
+            if (error != null) {
+                firstError.compareAndSet(null, error);
+            }
+            if (remaining.decrementAndGet() == 0) {
+                callback.accept(firstError.get());
+            }
+        };
+
+        if (locationEnabled && location != null) {
+            syncLocation(apiBaseUrl, token, location, completion);
+        }
+        if (presenceEnabled && presence != null) {
+            syncSocialPresence(apiBaseUrl, token, presence, completion);
+        }
     }
 
     public void syncSocialPresence(

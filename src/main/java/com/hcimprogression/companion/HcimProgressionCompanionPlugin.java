@@ -2,6 +2,8 @@ package com.hcimprogression.companion;
 
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -45,6 +47,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final Logger logger = LoggerFactory.getLogger(HcimProgressionCompanionPlugin.class);
     private static final String TOKEN_KEY = "deviceToken";
     private static final String DISPLAY_NAME_KEY = "linkedDisplayName";
+    private static final int BASE_SYNC_TICKS = 5;
+    private static final long LIVE_HEARTBEAT_MILLIS = 5 * 60_000L;
+    private static final long LIVE_CHANGE_COOLDOWN_MILLIS = 15_000L;
+    private static final long CLAN_HEARTBEAT_MILLIS = 30 * 60_000L;
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -66,11 +72,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
     private int tickCounter;
-    private int presenceCycleCounter;
-    private int clanCycleCounter;
-    private boolean syncInFlight;
-    private boolean presenceSyncInFlight;
-    private boolean clanSyncInFlight;
+    private volatile long nextLiveSyncAt;
+    private volatile long nextClanSyncAt;
+    private volatile long lastLiveSuccessAt;
+    private volatile String lastLiveFingerprint = "";
+    private volatile String lastClanFingerprint = "";
+    private volatile boolean liveSyncInFlight;
+    private volatile boolean clanSyncInFlight;
+    private final SyncBackoff liveBackoff = new SyncBackoff();
+    private final SyncBackoff clanBackoff = new SyncBackoff();
     private volatile boolean clanEventsSyncInFlight;
     private volatile String lastClanEventsFingerprint = "";
     private boolean clanEventsWidgetOpen;
@@ -83,11 +93,16 @@ public class HcimProgressionCompanionPlugin extends Plugin
     protected void startUp()
     {
         tickCounter = 0;
-        presenceCycleCounter = 0;
-        clanCycleCounter = 10;
-        syncInFlight = false;
-        presenceSyncInFlight = false;
+        long now = System.currentTimeMillis();
+        nextLiveSyncAt = now + randomJitter(30_000L);
+        nextClanSyncAt = now + randomJitter(60_000L);
+        lastLiveSuccessAt = 0L;
+        lastLiveFingerprint = "";
+        lastClanFingerprint = "";
+        liveSyncInFlight = false;
         clanSyncInFlight = false;
+        liveBackoff.reset();
+        clanBackoff.reset();
         clanEventsSyncInFlight = false;
         lastClanEventsFingerprint = "";
         clanEventsWidgetOpen = false;
@@ -127,6 +142,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         pendingGroupStorageSnapshot = null;
         groupStorageDirty = false;
         groupStorageSyncInFlight = false;
+        liveSyncInFlight = false;
+        clanSyncInFlight = false;
+        liveBackoff.reset();
+        clanBackoff.reset();
         logger.info("HCIM Progression Companion stopped.");
     }
 
@@ -407,8 +426,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         socialPresenceService.updateWornEquipment(event.getItemContainer());
-        // Request a fresh presence snapshot on the next eligible game tick.
-        presenceCycleCounter = 2;
+        // Request a fresh combined live snapshot on the next eligible game tick.
+        nextLiveSyncAt = 0L;
     }
 
     @Subscribe
@@ -425,20 +444,20 @@ public class HcimProgressionCompanionPlugin extends Plugin
     {
         if (!event.isGuest())
         {
-            clanCycleCounter = 10;
+            nextClanSyncAt = 0L;
         }
     }
 
     @Subscribe
     public void onClanMemberJoined(ClanMemberJoined event)
     {
-        clanCycleCounter = 10;
+        nextClanSyncAt = 0L;
     }
 
     @Subscribe
     public void onClanMemberLeft(ClanMemberLeft event)
     {
-        clanCycleCounter = 10;
+        nextClanSyncAt = 0L;
     }
 
     @Subscribe
@@ -453,7 +472,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         handlePendingGroupStorage();
 
         tickCounter++;
-        if (tickCounter < 5) return;
+        if (tickCounter < BASE_SYNC_TICKS) return;
         tickCounter = 0;
 
         PlayerState state = locationService.createPlayerState(client);
@@ -477,62 +496,113 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
         syncClanEventsIfVisible(token);
 
-        clanCycleCounter++;
-        if (clanCycleCounter >= 10)
+        long now = System.currentTimeMillis();
+        if (now >= nextClanSyncAt && clanBackoff.canAttempt(now))
         {
-            clanCycleCounter = 0;
             syncClanPresence(token);
         }
 
-        if (config.locationSharingEnabled() && !syncInFlight)
+        syncLivePresence(token, state, now);
+    }
+
+    private void syncLivePresence(String token, PlayerState state, long now)
+    {
+        boolean locationEnabled = config.locationSharingEnabled();
+        boolean presenceEnabled = config.socialPresenceEnabled();
+        if (!presenceEnabled && panel != null)
         {
-            syncInFlight = true;
-            syncService.syncLocation(config.apiBaseUrl(), token, state, error -> {
-                syncInFlight = false;
-                SwingUtilities.invokeLater(() -> {
-                    if (panel == null) return;
-                    if (error == null) panel.showSyncSuccess();
-                    else panel.showSyncError(error);
-                });
-            });
+            SwingUtilities.invokeLater(panel::showSocialPresenceDisabled);
         }
-
-        presenceCycleCounter++;
-        if (presenceCycleCounter < 2) return;
-        presenceCycleCounter = 0;
-
-        if (!config.socialPresenceEnabled())
+        if (!locationEnabled && !presenceEnabled)
         {
-            if (panel != null) SwingUtilities.invokeLater(panel::showSocialPresenceDisabled);
             return;
         }
 
-        if (presenceSyncInFlight) return;
-        SocialPresenceSnapshot presence = socialPresenceService.createSnapshot(
-            client,
-            itemManager,
-            config.locationSharingEnabled()
-        );
-        if (presence == null) return;
+        SocialPresenceSnapshot presence = presenceEnabled
+            ? socialPresenceService.createSnapshot(client, itemManager, locationEnabled)
+            : null;
+        if (presenceEnabled && presence == null)
+        {
+            return;
+        }
 
-        presenceSyncInFlight = true;
-        if (panel != null)
+        String fingerprint = liveFingerprint(state, presence, locationEnabled, presenceEnabled);
+        boolean changed = !fingerprint.equals(lastLiveFingerprint);
+        boolean changeAllowed = changed && now - lastLiveSuccessAt >= LIVE_CHANGE_COOLDOWN_MILLIS;
+        if ((!changeAllowed && now < nextLiveSyncAt) || liveSyncInFlight || !liveBackoff.canAttempt(now))
+        {
+            return;
+        }
+
+        liveSyncInFlight = true;
+        if (presenceEnabled && panel != null)
         {
             SwingUtilities.invokeLater(() -> panel.showSocialPresenceSyncing(
-                presence.getRegionName(),
-                presence.getActivity(),
-                presence.getCombatLevel(),
-                presence.getEquipment().size()
-            ));
+                presence.getRegionName(), presence.getActivity(),
+                presence.getCombatLevel(), presence.getEquipment().size()));
         }
-        syncService.syncSocialPresence(config.apiBaseUrl(), token, presence, error -> {
-            presenceSyncInFlight = false;
+
+        syncService.syncLive(
+            config.apiBaseUrl(), token, state, presence,
+            locationEnabled, presenceEnabled, error ->
+        {
+            liveSyncInFlight = false;
+            long completedAt = System.currentTimeMillis();
+            if (error == null)
+            {
+                liveBackoff.recordSuccess();
+                lastLiveFingerprint = fingerprint;
+                lastLiveSuccessAt = completedAt;
+                nextLiveSyncAt = completedAt + LIVE_HEARTBEAT_MILLIS + randomJitter(30_000L);
+            }
+            else
+            {
+                nextLiveSyncAt = liveBackoff.recordFailure(completedAt, randomJitter(15_000L));
+            }
             SwingUtilities.invokeLater(() -> {
                 if (panel == null) return;
-                if (error == null) panel.showSocialPresenceSuccess();
-                else panel.showSocialPresenceError(error);
+                if (locationEnabled)
+                {
+                    if (error == null) panel.showSyncSuccess();
+                    else panel.showSyncError(error);
+                }
+                if (presenceEnabled)
+                {
+                    if (error == null) panel.showSocialPresenceSuccess();
+                    else panel.showSocialPresenceError(error);
+                }
             });
         });
+    }
+
+    private String liveFingerprint(
+        PlayerState state,
+        SocialPresenceSnapshot presence,
+        boolean locationEnabled,
+        boolean presenceEnabled)
+    {
+        StringBuilder value = new StringBuilder()
+            .append(locationEnabled).append('|')
+            .append(presenceEnabled).append('|')
+            .append(state.getPlayerName()).append('|')
+            .append(state.getWorld()).append('|')
+            .append(state.getRegionId()).append('|')
+            .append(state.getPlane());
+        if (presence != null)
+        {
+            value.append('|').append(presence.getRegionName())
+                .append('|').append(presence.getCombatLevel())
+                .append('|').append(presence.getActivity())
+                .append('|').append(presence.isInWilderness())
+                .append('|').append(presence.isExactLocationIncluded());
+            for (Map.Entry<String, SocialPresenceSnapshot.EquipmentItem> entry
+                : presence.getEquipment().entrySet())
+            {
+                value.append('|').append(entry.getKey())
+                    .append(':').append(entry.getValue().getItemId());
+            }
+        }
+        return value.toString();
     }
 
     private void captureGroupStorage(ItemContainer container)
@@ -628,8 +698,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void syncClanPresence(String token)
     {
+        long now = System.currentTimeMillis();
         if (!config.socialClanSyncEnabled())
         {
+            nextClanSyncAt = now + CLAN_HEARTBEAT_MILLIS;
             if (panel != null) SwingUtilities.invokeLater(panel::showClanRosterDisabled);
             return;
         }
@@ -641,12 +713,30 @@ public class HcimProgressionCompanionPlugin extends Plugin
         SocialClanSnapshot clanSnapshot = socialClanService.createSnapshot(client);
         if (clanSnapshot == null)
         {
+            nextClanSyncAt = now + (5 * 60_000L);
             return;
         }
 
+        String fingerprint = clanFingerprint(clanSnapshot);
+        if (fingerprint.equals(lastClanFingerprint))
+        {
+            nextClanSyncAt = now + CLAN_HEARTBEAT_MILLIS + randomJitter(60_000L);
+            return;
+        }
         clanSyncInFlight = true;
         syncService.syncSocialClan(config.apiBaseUrl(), token, clanSnapshot, error -> {
             clanSyncInFlight = false;
+            long completedAt = System.currentTimeMillis();
+            if (error == null)
+            {
+                clanBackoff.recordSuccess();
+                lastClanFingerprint = fingerprint;
+                nextClanSyncAt = completedAt + CLAN_HEARTBEAT_MILLIS + randomJitter(60_000L);
+            }
+            else
+            {
+                nextClanSyncAt = clanBackoff.recordFailure(completedAt, randomJitter(30_000L));
+            }
             SwingUtilities.invokeLater(() -> {
                 if (panel == null) return;
                 if (error == null)
@@ -663,6 +753,30 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 logger.debug("Social clan roster sync failed: {}", error);
             }
         });
+    }
+
+    private String clanFingerprint(SocialClanSnapshot snapshot)
+    {
+        StringBuilder value = new StringBuilder()
+            .append(snapshot.getClanName()).append('|')
+            .append(snapshot.getPlayerRank());
+        for (SocialClanSnapshot.ClanMemberSnapshot member : snapshot.getMembers())
+        {
+            value.append('|').append(member.getName())
+                .append(':').append(member.getRank())
+                .append(':').append(member.getWorld())
+                .append(':').append(member.isOnline());
+        }
+        return value.toString();
+    }
+
+    private long randomJitter(long maximumMillis)
+    {
+        if (maximumMillis <= 0L)
+        {
+            return 0L;
+        }
+        return ThreadLocalRandom.current().nextLong(maximumMillis + 1L);
     }
 
     private void syncClanEventsIfVisible(String token)
