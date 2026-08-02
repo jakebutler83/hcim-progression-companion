@@ -54,6 +54,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel accountSyncTimeValue = new JLabel("—");
     private final JLabel collectionCaptureValue = new JLabel("Open clue pages");
     private final JLabel clueCountsValue = new JLabel("—");
+    private final JLabel tcgValue = new JLabel("Disabled");
     private final JLabel playerValue = new JLabel("—");
     private final JLabel worldValue = new JLabel("—");
     private final JLabel regionValue = new JLabel("—");
@@ -131,6 +132,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountBody.add(createRow("Last sync", accountSyncTimeValue));
         accountBody.add(createRow("Collection Log", collectionCaptureValue));
         accountBody.add(createRow("Clue totals", clueCountsValue));
+        accountBody.add(createRow("OSRS TCG", tcgValue));
         accountBody.add(Box.createVerticalStrut(8));
 
         styleButton(accountSyncButton, true);
@@ -388,6 +390,25 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         setAccountSyncing(false);
         accountSyncStatusValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
         accountSyncStatusValue.setForeground(ERROR);
+    }
+
+    public void showTcgStatus(TcgCollectionSnapshot snapshot, boolean enabled)
+    {
+        if (!enabled)
+        {
+            tcgValue.setText("Disabled");
+            tcgValue.setForeground(MUTED);
+            return;
+        }
+        if (snapshot == null || !snapshot.isAvailable())
+        {
+            tcgValue.setText("No save found");
+            tcgValue.setForeground(WARNING);
+            return;
+        }
+        tcgValue.setText(snapshot.getUniqueOwned() + " unique / " + snapshot.getTotalCardsOwned() + " cards");
+        tcgValue.setToolTipText(String.format("%.1f%% complete • %d foil uniques", snapshot.getCompletionPct(), snapshot.getUniqueFoilOwned()));
+        tcgValue.setForeground(SUCCESS);
     }
 
     public void showCollectionLogCapture(String pageTitle, int pageItems, int totalPages, int totalItems, Map<String, Integer> clueCounts)

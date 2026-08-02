@@ -431,6 +431,8 @@ public class SyncService {
                 + ","
                 + "\"lastTearsVisitAt\":"
                 + snapshot.getLastTearsVisitAt()
+                + ",\"tcg\":"
+                + tcgJson(snapshot.getTcg())
                 + ","
                 + "\"skills\":"
                 + skills
@@ -471,6 +473,37 @@ public class SyncService {
                             null
                     );
                 });
+    }
+
+    private String tcgJson(TcgCollectionSnapshot snapshot)
+    {
+        if (snapshot == null || !snapshot.isAvailable()) return "null";
+        StringBuilder cards = new StringBuilder("[");
+        for (int i = 0; i < snapshot.getCards().size(); i++)
+        {
+            if (i > 0) cards.append(',');
+            TcgCollectionSnapshot.CardSnapshot card = snapshot.getCards().get(i);
+            cards.append('{')
+                .append("\"name\":\"").append(escape(card.getName())).append("\",")
+                .append("\"foil\":").append(card.isFoil()).append(',')
+                .append("\"quantity\":").append(card.getQuantity())
+                .append('}');
+        }
+        cards.append(']');
+        return "{"
+            + "\"available\":true,"
+            + "\"schemaVersion\":" + snapshot.getSchemaVersion() + ','
+            + "\"credits\":" + snapshot.getCredits() + ','
+            + "\"openedPacks\":" + snapshot.getOpenedPacks() + ','
+            + "\"totalCardsOwned\":" + snapshot.getTotalCardsOwned() + ','
+            + "\"uniqueOwned\":" + snapshot.getUniqueOwned() + ','
+            + "\"uniqueFoilOwned\":" + snapshot.getUniqueFoilOwned() + ','
+            + "\"totalCardPool\":" + snapshot.getTotalCardPool() + ','
+            + "\"completionPct\":" + snapshot.getCompletionPct() + ','
+            + "\"foilCompletionPct\":" + snapshot.getFoilCompletionPct() + ','
+            + "\"updatedAt\":" + snapshot.getUpdatedAt() + ','
+            + "\"cards\":" + cards
+            + "}";
     }
 
     public void syncGroupStorage(

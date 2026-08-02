@@ -5,6 +5,7 @@ import java.awt.image.BufferedImage;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -75,6 +76,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final GroupStorageSnapshotService groupStorageSnapshotService = new GroupStorageSnapshotService();
     private final PersonalBankSnapshotService personalBankSnapshotService = new PersonalBankSnapshotService();
     private final WeeklyLootTrackerService weeklyLootTrackerService = new WeeklyLootTrackerService();
+    private final TcgCollectionSnapshotService tcgCollectionSnapshotService = new TcgCollectionSnapshotService();
     @Inject private SyncService syncService;
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
@@ -151,6 +153,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         else panel.showGroupStorageDisabled();
         if (config.personalBankSyncEnabled()) panel.showPersonalBankWaiting();
         else panel.showPersonalBankDisabled();
+        panel.showTcgStatus(null, config.tcgCollectionSyncEnabled());
 
         logger.info("HCIM Progression Companion started.");
     }
@@ -248,9 +251,18 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
                 // Clue completion totals are not reliably present in Collection Log widgets.
                 // RuneLite itself uses the official hiscores for !clues, so use the same source.
-                hiscoreClient.lookupAsync(snapshot.getPlayerName(), HiscoreEndpoint.NORMAL)
-                    .whenComplete((hiscoreResult, hiscoreError) ->
+                CompletableFuture<HiscoreResult> hiscoreFuture = hiscoreClient.lookupAsync(snapshot.getPlayerName(), HiscoreEndpoint.NORMAL);
+                CompletableFuture<TcgCollectionSnapshot> tcgFuture = config.tcgCollectionSyncEnabled()
+                    ? CompletableFuture.supplyAsync(() -> tcgCollectionSnapshotService.read(configManager.getRSProfileKey()))
+                    : CompletableFuture.completedFuture(null);
+                CompletableFuture.allOf(hiscoreFuture, tcgFuture).whenComplete((ignored, combinedError) ->
                     {
+                        HiscoreResult hiscoreResult = hiscoreFuture.getNow(null);
+                        TcgCollectionSnapshot tcgSnapshot = tcgFuture.getNow(null);
+                        if (tcgSnapshot != null) snapshot.setTcg(tcgSnapshot);
+                        SwingUtilities.invokeLater(() -> {
+                            if (panel != null) panel.showTcgStatus(tcgSnapshot, config.tcgCollectionSyncEnabled());
+                        });
                         if (hiscoreResult != null)
                         {
                             applyHiscoreClueCounts(snapshot, hiscoreResult);
@@ -258,7 +270,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                         }
                         else
                         {
-                            logger.warn("Could not fetch clue totals from hiscores; syncing captured data only", hiscoreError);
+                            logger.warn("Could not fetch clue totals from hiscores; syncing captured data only", combinedError);
                         }
 
                         syncService.syncAccount(config.apiBaseUrl(), token, snapshot, (result, error) ->

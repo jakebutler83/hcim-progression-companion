@@ -21,6 +21,7 @@ public class AccountSnapshot
     private long lootDropCountTotal;
     private long lootTrackedSince;
     private long lastTearsVisitAt;
+    private TcgCollectionSnapshot tcg;
 
     public String getPlayerName() { return playerName; }
     public void setPlayerName(String playerName) { this.playerName = playerName; }
@@ -44,6 +45,8 @@ public class AccountSnapshot
     public void setLootTrackedSince(long lootTrackedSince) { this.lootTrackedSince = lootTrackedSince; }
     public long getLastTearsVisitAt() { return lastTearsVisitAt; }
     public void setLastTearsVisitAt(long lastTearsVisitAt) { this.lastTearsVisitAt = lastTearsVisitAt; }
+    public TcgCollectionSnapshot getTcg() { return tcg; }
+    public void setTcg(TcgCollectionSnapshot tcg) { this.tcg = tcg; }
 
     public static class CollectionLogItemSnapshot
     {
