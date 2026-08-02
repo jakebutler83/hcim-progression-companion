@@ -174,7 +174,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     {
         JPanel header = createVerticalPanel(ColorScheme.DARK_GRAY_COLOR);
 
-        JLabel title = new JLabel("HCIM PROGRESSION");
+        JLabel title = new JLabel("PROGRESSION PATH");
         title.setForeground(GOLD);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
         title.setAlignmentX(LEFT_ALIGNMENT);
@@ -347,8 +347,13 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
     public void showUnlinked()
     {
+        showUnlinked(null);
+    }
+
+    public void showUnlinked(String playerName)
+    {
         connectButton.setEnabled(true);
-        linkValue.setText("Not linked");
+        linkValue.setText(playerName == null || playerName.isEmpty() ? "Not linked" : "Link " + playerName);
         linkValue.setForeground(WARNING);
     }
 

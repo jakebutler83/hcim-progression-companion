@@ -29,6 +29,12 @@ public class CollectionLogCaptureService
     private final Map<String, CapturedPage> pages = new LinkedHashMap<>();
     private final Map<String, Integer> clueCounts = new LinkedHashMap<>();
 
+    public synchronized void reset()
+    {
+        pages.clear();
+        clueCounts.clear();
+    }
+
     public synchronized CaptureResult captureCurrentPage(Client client, ItemManager itemManager)
     {
         Widget header = client.getWidget(ComponentID.COLLECTION_LOG_ENTRY_HEADER);

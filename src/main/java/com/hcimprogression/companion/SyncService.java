@@ -50,7 +50,10 @@ public class SyncService {
                     }
 
                     String token = stringValue(body, "token");
-                    String displayName = stringValue(body, "displayName");
+                    String displayName = stringValue(body, "characterName");
+                    if (displayName.isEmpty()) {
+                        displayName = stringValue(body, "displayName");
+                    }
 
                     if (token.isEmpty()) {
                         callback.accept(null, errorValue(body));

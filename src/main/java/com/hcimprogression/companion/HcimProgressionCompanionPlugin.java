@@ -2,6 +2,7 @@ package com.hcimprogression.companion;
 
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
@@ -38,15 +39,17 @@ import org.slf4j.LoggerFactory;
 import net.runelite.client.callback.ClientThread;
 
 @PluginDescriptor(
-    name = "HCIM Progression Companion",
-    description = "Connects RuneLite to Progression Path for progress, Group Storage, weekly gains, location, Social Hub presence, clan rosters, and clan events.",
-    tags = {"hcim", "group ironman", "progression", "group storage", "bank", "weekly", "loot", "location", "social", "friends", "equipment", "clan", "events"}
+    name = "Progression Path Companion",
+    description = "Connects RuneLite accounts to Progression Path for progress, weekly gains, boss and clue history, Group Storage, location, and social features.",
+    tags = {"progression", "tracker", "account", "main", "ironman", "hcim", "group ironman", "group storage", "weekly", "loot", "location", "social", "clan"}
 )
 public class HcimProgressionCompanionPlugin extends Plugin
 {
     private static final Logger logger = LoggerFactory.getLogger(HcimProgressionCompanionPlugin.class);
     private static final String TOKEN_KEY = "deviceToken";
     private static final String DISPLAY_NAME_KEY = "linkedDisplayName";
+    private static final String TOKEN_KEY_PREFIX = "deviceToken.";
+    private static final String DISPLAY_NAME_KEY_PREFIX = "linkedDisplayName.";
     private static final int BASE_SYNC_TICKS = 5;
     private static final long LIVE_HEARTBEAT_MILLIS = 5 * 60_000L;
     private static final long LIVE_CHANGE_COOLDOWN_MILLIS = 15_000L;
@@ -90,6 +93,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private boolean groupStorageDirty;
     private int groupStorageDebounceTicks;
     private volatile boolean groupStorageSyncInFlight;
+    private volatile String activePlayerKey;
 
     @Override
     protected void startUp()
@@ -113,20 +117,19 @@ public class HcimProgressionCompanionPlugin extends Plugin
         groupStorageDirty = false;
         groupStorageDebounceTicks = 0;
         groupStorageSyncInFlight = false;
+        activePlayerKey = null;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
         navigationButton = NavigationButton.builder()
-            .tooltip("HCIM Progression Companion")
+            .tooltip("Progression Path Companion")
             .icon(icon)
             .priority(5)
             .panel(panel)
             .build();
         clientToolbar.addNavigation(navigationButton);
 
-        String token = deviceToken();
-        if (token.isEmpty()) panel.showUnlinked();
-        else panel.showLinked(configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, DISPLAY_NAME_KEY));
+        updateActiveAccountLink(currentPlayerName());
         if (config.groupStorageSyncEnabled()) panel.showGroupStorageWaiting();
         else panel.showGroupStorageDisabled();
 
@@ -163,8 +166,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     panel.showLinkError(error);
                     return;
                 }
-                configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, TOKEN_KEY, result.getToken());
-                configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, DISPLAY_NAME_KEY, result.getDisplayName());
+                String key = accountKey(result.getDisplayName());
+                if (key.isEmpty())
+                {
+                    panel.showLinkError("The website did not return a RuneScape account name");
+                    return;
+                }
+                configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, TOKEN_KEY_PREFIX + key, result.getToken());
+                configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, DISPLAY_NAME_KEY_PREFIX + key, result.getDisplayName());
+                activePlayerKey = key;
                 panel.showLinked(result.getDisplayName());
             })
         );
@@ -480,6 +490,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         PlayerState state = locationService.createPlayerState(client);
         if (state == null) return;
         String playerName = state.getPlayerName() == null ? "Unknown" : state.getPlayerName();
+        updateActiveAccountLink(playerName);
 
         if (panel != null)
         {
@@ -857,8 +868,86 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private String deviceToken()
     {
-        String value = configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, TOKEN_KEY);
+        String key = activePlayerKey == null ? "" : activePlayerKey;
+        if (key.isEmpty())
+        {
+            return "";
+        }
+        String value = configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, TOKEN_KEY_PREFIX + key);
+        if (value == null || value.trim().isEmpty())
+        {
+            String legacyName = configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, DISPLAY_NAME_KEY);
+            String legacyToken = configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, TOKEN_KEY);
+            if (key.equals(accountKey(legacyName)) && legacyToken != null && !legacyToken.trim().isEmpty())
+            {
+                value = legacyToken.trim();
+                configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, TOKEN_KEY_PREFIX + key, value);
+                configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, DISPLAY_NAME_KEY_PREFIX + key, legacyName);
+            }
+        }
         return value == null ? "" : value.trim();
+    }
+
+    private String currentPlayerName()
+    {
+        if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
+        {
+            return "";
+        }
+        String name = client.getLocalPlayer().getName();
+        return name == null ? "" : name.trim();
+    }
+
+    private String accountKey(String playerName)
+    {
+        if (playerName == null)
+        {
+            return "";
+        }
+        return playerName.replace('\u00a0', ' ')
+            .trim()
+            .toLowerCase(Locale.ROOT)
+            .replaceAll("[^a-z0-9]+", "_")
+            .replaceAll("^_+|_+$", "");
+    }
+
+    private void updateActiveAccountLink(String playerName)
+    {
+        String key = accountKey(playerName);
+        if (key.equals(activePlayerKey))
+        {
+            return;
+        }
+        activePlayerKey = key;
+        collectionLogCaptureService.reset();
+        pendingGroupStorageSnapshot = null;
+        groupStorageDirty = false;
+        lastLiveFingerprint = "";
+        lastClanFingerprint = "";
+        lastClanEventsFingerprint = "";
+        liveBackoff.reset();
+        clanBackoff.reset();
+        if (panel == null)
+        {
+            return;
+        }
+        String token = deviceToken();
+        HcimProgressionCompanionPanel currentPanel = panel;
+        if (token.isEmpty())
+        {
+            SwingUtilities.invokeLater(() -> {
+                if (panel == currentPanel) currentPanel.showUnlinked(playerName);
+            });
+            return;
+        }
+        String linkedName = configManager.getConfiguration(
+            HcimProgressionCompanionConfig.GROUP,
+            DISPLAY_NAME_KEY_PREFIX + key
+        );
+        String shownName = linkedName == null || linkedName.trim().isEmpty() ? playerName : linkedName;
+        SwingUtilities.invokeLater(() -> {
+            if (panel == currentPanel) currentPanel.showLinked(shownName);
+        });
     }
 
     @Provides
