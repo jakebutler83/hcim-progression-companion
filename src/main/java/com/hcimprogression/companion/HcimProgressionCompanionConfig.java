@@ -72,8 +72,8 @@ public interface HcimProgressionCompanionConfig extends Config
 
     @ConfigItem(
         keyName = "personalBankSyncEnabled",
-        name = "Sync Personal Bank (Solo)",
-        description = "Uploads your own bank to your private Solo Adventurer journal whenever you open or change the normal bank interface.",
+        name = "Sync Personal Bank",
+        description = "Uploads your own bank to your private Progression Path journal whenever you open or change the normal bank interface.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 5
     )
