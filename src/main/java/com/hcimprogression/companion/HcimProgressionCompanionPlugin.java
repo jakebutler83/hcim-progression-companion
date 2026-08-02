@@ -430,8 +430,6 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         socialPresenceService.updateWornEquipment(event.getItemContainer());
-        // Request a fresh combined live snapshot on the next eligible game tick.
-        nextLiveSyncAt = 0L;
     }
 
     @Subscribe
@@ -727,6 +725,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             nextClanSyncAt = now + CLAN_HEARTBEAT_MILLIS + randomJitter(60_000L);
             return;
         }
+        clanChangeCooldown.recordAttempt(now);
         clanSyncInFlight = true;
         syncService.syncSocialClan(config.apiBaseUrl(), token, clanSnapshot, error -> {
             clanSyncInFlight = false;
@@ -734,13 +733,13 @@ public class HcimProgressionCompanionPlugin extends Plugin
             if (error == null)
             {
                 clanBackoff.recordSuccess();
-                clanChangeCooldown.recordSuccess(completedAt);
                 lastClanFingerprint = fingerprint;
                 nextClanSyncAt = completedAt + CLAN_HEARTBEAT_MILLIS + randomJitter(60_000L);
             }
             else
             {
-                nextClanSyncAt = clanBackoff.recordFailure(completedAt, randomJitter(30_000L));
+                long retryAt = clanBackoff.recordFailure(completedAt, randomJitter(30_000L));
+                nextClanSyncAt = clanChangeCooldown.nextAllowedAt(completedAt, retryAt);
             }
             SwingUtilities.invokeLater(() -> {
                 if (panel == null) return;

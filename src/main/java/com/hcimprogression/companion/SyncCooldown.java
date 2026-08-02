@@ -3,7 +3,7 @@ package com.hcimprogression.companion;
 final class SyncCooldown
 {
     private final long cooldownMillis;
-    private long lastSuccessAtMillis;
+    private long lastAttemptAtMillis;
 
     SyncCooldown(long cooldownMillis)
     {
@@ -16,18 +16,18 @@ final class SyncCooldown
 
     synchronized void reset()
     {
-        lastSuccessAtMillis = 0L;
+        lastAttemptAtMillis = 0L;
     }
 
-    synchronized void recordSuccess(long nowMillis)
+    synchronized void recordAttempt(long nowMillis)
     {
-        lastSuccessAtMillis = nowMillis;
+        lastAttemptAtMillis = nowMillis;
     }
 
     synchronized long nextAllowedAt(long nowMillis, long retryAtMillis)
     {
-        long cooldownAt = lastSuccessAtMillis > 0L
-                ? lastSuccessAtMillis + cooldownMillis
+        long cooldownAt = lastAttemptAtMillis > 0L
+                ? lastAttemptAtMillis + cooldownMillis
                 : nowMillis;
         return Math.max(nowMillis, Math.max(cooldownAt, retryAtMillis));
     }
