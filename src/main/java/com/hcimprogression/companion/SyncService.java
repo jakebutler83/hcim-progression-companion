@@ -379,6 +379,15 @@ public class SyncService {
         }
         bossKillCounts.append('}');
 
+        StringBuilder diaryCompletions = new StringBuilder("{");
+        boolean firstDiary = true;
+        for (Map.Entry<String, Boolean> entry : snapshot.getDiaryCompletions().entrySet()) {
+            if (!firstDiary) diaryCompletions.append(',');
+            firstDiary = false;
+            diaryCompletions.append('"').append(escape(entry.getKey())).append("\":").append(entry.getValue());
+        }
+        diaryCompletions.append('}');
+
         StringBuilder collectionLog = new StringBuilder("{");
         boolean firstLog = true;
         for (Map.Entry<String, Integer> entry : snapshot.getCollectionLog().entrySet()) {
@@ -429,6 +438,8 @@ public class SyncService {
                 + clueCounts
                 + ",\"bossKillCounts\":"
                 + bossKillCounts
+                + ",\"diaryCompletions\":"
+                + diaryCompletions
                 + ",\"collectionLog\":"
                 + collectionLog
                 + ",\"collectionLogItems\":"

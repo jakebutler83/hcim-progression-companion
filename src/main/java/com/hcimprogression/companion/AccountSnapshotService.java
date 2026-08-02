@@ -8,6 +8,7 @@ import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
+import net.runelite.api.gameval.VarbitID;
 
 public class AccountSnapshotService
 {
@@ -18,6 +19,7 @@ public class AccountSnapshotService
 
         AccountSnapshot snapshot = new AccountSnapshot();
         snapshot.setPlayerName(player.getName());
+        snapshot.setQuestPoints(Math.max(0, client.getVarpValue(VarPlayer.QUEST_POINTS)));
 
         for (Skill skill : Skill.values())
         {
@@ -47,10 +49,88 @@ public class AccountSnapshotService
             }
         }
         snapshot.setCompletedQuests(completed);
+        applyAchievementDiaryCompletions(client, snapshot);
         snapshot.getCollectionLog().put("logged", client.getVarpValue(VarPlayer.CLOG_LOGGED));
         snapshot.getCollectionLog().put("total", client.getVarpValue(VarPlayer.CLOG_TOTAL));
         collectionLogCaptureService.applyTo(snapshot);
         return snapshot;
+    }
+
+    private void applyAchievementDiaryCompletions(Client client, AccountSnapshot snapshot)
+    {
+        putDiaryTiers(snapshot, "diary_ardy",
+            completed(client, VarbitID.ARDOUGNE_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.ARDOUGNE_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.ARDOUGNE_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_lum",
+            completed(client, VarbitID.LUMBRIDGE_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.LUMBRIDGE_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.LUMBRIDGE_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.LUMBRIDGE_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_var",
+            completed(client, VarbitID.VARROCK_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.VARROCK_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.VARROCK_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.VARROCK_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_fal",
+            completed(client, VarbitID.FALADOR_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.FALADOR_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.FALADOR_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.FALADOR_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_kar",
+            client.getVarbitValue(VarbitID.KARAMJA_EASY_COUNT) >= 10,
+            client.getVarbitValue(VarbitID.KARAMJA_MED_COUNT) >= 19,
+            client.getVarbitValue(VarbitID.KARAMJA_HARD_COUNT) >= 10,
+            completed(client, VarbitID.KARAMJA_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_kan",
+            completed(client, VarbitID.KANDARIN_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.KANDARIN_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.KANDARIN_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.KANDARIN_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_mor",
+            completed(client, VarbitID.MORYTANIA_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.MORYTANIA_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.MORYTANIA_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.MORYTANIA_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_frem",
+            completed(client, VarbitID.FREMENNIK_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.FREMENNIK_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.FREMENNIK_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.FREMENNIK_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_des",
+            completed(client, VarbitID.DESERT_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.DESERT_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.DESERT_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.DESERT_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_west",
+            completed(client, VarbitID.WESTERN_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.WESTERN_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.WESTERN_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.WESTERN_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_wild",
+            completed(client, VarbitID.WILDERNESS_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.WILDERNESS_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.WILDERNESS_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.WILDERNESS_DIARY_ELITE_COMPLETE));
+        putDiaryTiers(snapshot, "diary_kou",
+            completed(client, VarbitID.KOUREND_DIARY_EASY_COMPLETE),
+            completed(client, VarbitID.KOUREND_DIARY_MEDIUM_COMPLETE),
+            completed(client, VarbitID.KOUREND_DIARY_HARD_COMPLETE),
+            completed(client, VarbitID.KOUREND_DIARY_ELITE_COMPLETE));
+    }
+
+    private boolean completed(Client client, int varbitId)
+    {
+        return client.getVarbitValue(varbitId) > 0;
+    }
+
+    private void putDiaryTiers(AccountSnapshot snapshot, String prefix, boolean easy, boolean medium, boolean hard, boolean elite)
+    {
+        snapshot.getDiaryCompletions().put(prefix + "_easy", easy || medium || hard || elite);
+        snapshot.getDiaryCompletions().put(prefix + "_med", medium || hard || elite);
+        snapshot.getDiaryCompletions().put(prefix + "_hard", hard || elite);
+        snapshot.getDiaryCompletions().put(prefix + "_elite", elite);
     }
 
     private String displaySkillName(Skill skill)

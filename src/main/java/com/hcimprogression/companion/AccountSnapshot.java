@@ -13,6 +13,7 @@ public class AccountSnapshot
     private List<String> completedQuests;
     private final Map<String, Integer> clueCounts = new LinkedHashMap<>();
     private final Map<String, Integer> bossKillCounts = new LinkedHashMap<>();
+    private final Map<String, Boolean> diaryCompletions = new LinkedHashMap<>();
     private final Map<String, Integer> collectionLog = new LinkedHashMap<>();
     private final List<CollectionLogItemSnapshot> collectionLogItems = new ArrayList<>();
     private boolean lootTrackingEnabled;
@@ -29,6 +30,7 @@ public class AccountSnapshot
     public void setCompletedQuests(List<String> completedQuests) { this.completedQuests = completedQuests; }
     public Map<String, Integer> getClueCounts() { return clueCounts; }
     public Map<String, Integer> getBossKillCounts() { return bossKillCounts; }
+    public Map<String, Boolean> getDiaryCompletions() { return diaryCompletions; }
     public Map<String, Integer> getCollectionLog() { return collectionLog; }
     public List<CollectionLogItemSnapshot> getCollectionLogItems() { return collectionLogItems; }
     public boolean isLootTrackingEnabled() { return lootTrackingEnabled; }
