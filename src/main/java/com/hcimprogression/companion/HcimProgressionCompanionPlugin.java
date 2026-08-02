@@ -21,6 +21,8 @@ import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -59,6 +61,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long CLAN_CHANGE_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long TEARS_SYNC_COOLDOWN_MILLIS = 60_000L;
     private static final long BIRDHOUSE_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
+    private static final long SLAYER_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -109,6 +112,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastTearsSyncTriggeredAt;
     private volatile String tearsVisitAccountKey = "";
     private volatile long lastBirdhouseSyncAt;
+    private volatile long lastSlayerSyncAt;
+    private volatile String lastSlayerFingerprint = "";
 
     @Override
     protected void startUp()
@@ -141,6 +146,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastTearsSyncTriggeredAt = 0L;
         tearsVisitAccountKey = "";
         lastBirdhouseSyncAt = 0L;
+        lastSlayerSyncAt = 0L;
+        lastSlayerFingerprint = "";
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
 
@@ -573,6 +580,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (birdhousesChanged && birdhouseNow - lastBirdhouseSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
             lastBirdhouseSyncAt = birdhouseNow;
+            syncAccountNow();
+        }
+        String slayerFingerprint = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":"
+            + client.getVarpValue(VarPlayerID.SLAYER_COUNT) + ":"
+            + client.getVarbitValue(VarbitID.SLAYER_POINTS) + ":"
+            + client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED);
+        boolean slayerChanged = !slayerFingerprint.equals(lastSlayerFingerprint);
+        lastSlayerFingerprint = slayerFingerprint;
+        if (slayerChanged && birdhouseNow - lastSlayerSyncAt >= SLAYER_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
+        {
+            lastSlayerSyncAt = birdhouseNow;
             syncAccountNow();
         }
 
