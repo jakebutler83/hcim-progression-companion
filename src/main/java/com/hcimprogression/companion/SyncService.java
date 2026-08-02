@@ -433,6 +433,8 @@ public class SyncService {
                 + snapshot.getLastTearsVisitAt()
                 + ",\"birdhouses\":"
                 + birdhousesJson(snapshot.getBirdhouses())
+                + ",\"slayer\":"
+                + slayerJson(snapshot.getSlayer())
                 + ",\"tcg\":"
                 + tcgJson(snapshot.getTcg())
                 + ","
@@ -498,6 +500,15 @@ public class SyncService {
             + ",\"readyCount\":" + snapshot.getReadyCount()
             + ",\"nextReadyAt\":" + snapshot.getNextReadyAt()
             + ",\"houses\":" + houses + "}";
+    }
+
+    private String slayerJson(SlayerSnapshot snapshot)
+    {
+        if (snapshot == null) return "null";
+        return "{\"currentTask\":\"" + escape(snapshot.getCurrentTask()) + "\",\"remaining\":"
+            + snapshot.getRemaining() + ",\"points\":" + snapshot.getPoints() + ",\"streak\":"
+            + snapshot.getStreak() + ",\"master\":\"" + escape(snapshot.getMaster()) + "\",\"targetId\":"
+            + snapshot.getTargetId() + ",\"updatedAt\":" + snapshot.getUpdatedAt() + "}";
     }
 
     private String tcgJson(TcgCollectionSnapshot snapshot)

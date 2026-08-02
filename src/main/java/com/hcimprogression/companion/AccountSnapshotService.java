@@ -9,6 +9,7 @@ import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.gameval.VarPlayerID;
 
 public class AccountSnapshotService
 {
@@ -54,7 +55,22 @@ public class AccountSnapshotService
         snapshot.getCollectionLog().put("total", client.getVarpValue(VarPlayer.CLOG_TOTAL));
         collectionLogCaptureService.applyTo(snapshot);
         if (birdhouseTracker != null) snapshot.setBirdhouses(birdhouseTracker.snapshot());
+        snapshot.setSlayer(readSlayer(client));
         return snapshot;
+    }
+
+    private SlayerSnapshot readSlayer(Client client)
+    {
+        int targetId = Math.max(0, client.getVarpValue(VarPlayerID.SLAYER_TARGET));
+        int remaining = Math.max(0, client.getVarpValue(VarPlayerID.SLAYER_COUNT));
+        int points = Math.max(0, client.getVarbitValue(VarbitID.SLAYER_POINTS));
+        int streak = Math.max(0, client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED));
+        String task = targetId > 0 && client.getNpcDefinition(targetId) != null
+            ? client.getNpcDefinition(targetId).getName() : (targetId > 0 ? "Task target #" + targetId : "No active task");
+        int masterId = Math.max(0, client.getVarbitValue(VarbitID.SLAYER_MASTER));
+        String master = masterId > 0 && client.getNpcDefinition(masterId) != null
+            ? client.getNpcDefinition(masterId).getName() : "Unknown master";
+        return new SlayerSnapshot(task, remaining, points, streak, master, targetId, System.currentTimeMillis());
     }
 
     private void applyAchievementDiaryCompletions(Client client, AccountSnapshot snapshot)
