@@ -12,7 +12,7 @@ import net.runelite.api.gameval.VarbitID;
 
 public class AccountSnapshotService
 {
-    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService)
+    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker)
     {
         Player player = client.getLocalPlayer();
         if (player == null) return null;
@@ -53,6 +53,7 @@ public class AccountSnapshotService
         snapshot.getCollectionLog().put("logged", client.getVarpValue(VarPlayer.CLOG_LOGGED));
         snapshot.getCollectionLog().put("total", client.getVarpValue(VarPlayer.CLOG_TOTAL));
         collectionLogCaptureService.applyTo(snapshot);
+        if (birdhouseTracker != null) snapshot.setBirdhouses(birdhouseTracker.snapshot());
         return snapshot;
     }
 

@@ -431,6 +431,8 @@ public class SyncService {
                 + ","
                 + "\"lastTearsVisitAt\":"
                 + snapshot.getLastTearsVisitAt()
+                + ",\"birdhouses\":"
+                + birdhousesJson(snapshot.getBirdhouses())
                 + ",\"tcg\":"
                 + tcgJson(snapshot.getTcg())
                 + ","
@@ -473,6 +475,29 @@ public class SyncService {
                             null
                     );
                 });
+    }
+
+    private String birdhousesJson(BirdhouseSnapshot snapshot)
+    {
+        if (snapshot == null) return "null";
+        StringBuilder houses = new StringBuilder("[");
+        for (int i = 0; i < snapshot.getHouses().size(); i++)
+        {
+            BirdhouseSnapshot.House house = snapshot.getHouses().get(i);
+            if (i > 0) houses.append(',');
+            houses.append('{')
+                .append("\"name\":\"").append(escape(house.getName())).append("\",")
+                .append("\"state\":\"").append(escape(house.getState())).append("\",")
+                .append("\"lastChangedAt\":").append(house.getLastChangedAt()).append(',')
+                .append("\"readyAt\":").append(house.getReadyAt())
+                .append('}');
+        }
+        houses.append(']');
+        return "{\"trackedCount\":" + snapshot.getTrackedCount()
+            + ",\"seededCount\":" + snapshot.getSeededCount()
+            + ",\"readyCount\":" + snapshot.getReadyCount()
+            + ",\"nextReadyAt\":" + snapshot.getNextReadyAt()
+            + ",\"houses\":" + houses + "}";
     }
 
     private String tcgJson(TcgCollectionSnapshot snapshot)

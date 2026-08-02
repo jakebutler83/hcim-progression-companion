@@ -58,6 +58,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long CLAN_HEARTBEAT_MILLIS = 30 * 60_000L;
     private static final long CLAN_CHANGE_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long TEARS_SYNC_COOLDOWN_MILLIS = 60_000L;
+    private static final long BIRDHOUSE_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -77,6 +78,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final PersonalBankSnapshotService personalBankSnapshotService = new PersonalBankSnapshotService();
     private final WeeklyLootTrackerService weeklyLootTrackerService = new WeeklyLootTrackerService();
     private final TcgCollectionSnapshotService tcgCollectionSnapshotService = new TcgCollectionSnapshotService();
+    private BirdhouseTracker birdhouseTracker;
     @Inject private SyncService syncService;
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
@@ -106,6 +108,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastTearsVisitAt;
     private volatile long lastTearsSyncTriggeredAt;
     private volatile String tearsVisitAccountKey = "";
+    private volatile long lastBirdhouseSyncAt;
 
     @Override
     protected void startUp()
@@ -137,7 +140,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastTearsVisitAt = 0L;
         lastTearsSyncTriggeredAt = 0L;
         tearsVisitAccountKey = "";
+        lastBirdhouseSyncAt = 0L;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
+        birdhouseTracker = new BirdhouseTracker(configManager);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
         navigationButton = NavigationButton.builder()
@@ -230,7 +235,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     return;
                 }
 
-                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService);
+                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker);
                 if (snapshot == null)
                 {
                     SwingUtilities.invokeLater(() ->
@@ -561,6 +566,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             if (panel != null) SwingUtilities.invokeLater(panel::showLoggedOut);
             return;
+        }
+
+        boolean birdhousesChanged = birdhouseTracker != null && birdhouseTracker.update(client);
+        long birdhouseNow = System.currentTimeMillis();
+        if (birdhousesChanged && birdhouseNow - lastBirdhouseSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
+        {
+            lastBirdhouseSyncAt = birdhouseNow;
+            syncAccountNow();
         }
 
         handlePendingGroupStorage();

@@ -21,6 +21,7 @@ public class AccountSnapshot
     private long lootDropCountTotal;
     private long lootTrackedSince;
     private long lastTearsVisitAt;
+    private BirdhouseSnapshot birdhouses;
     private TcgCollectionSnapshot tcg;
 
     public String getPlayerName() { return playerName; }
@@ -45,6 +46,8 @@ public class AccountSnapshot
     public void setLootTrackedSince(long lootTrackedSince) { this.lootTrackedSince = lootTrackedSince; }
     public long getLastTearsVisitAt() { return lastTearsVisitAt; }
     public void setLastTearsVisitAt(long lastTearsVisitAt) { this.lastTearsVisitAt = lastTearsVisitAt; }
+    public BirdhouseSnapshot getBirdhouses() { return birdhouses; }
+    public void setBirdhouses(BirdhouseSnapshot birdhouses) { this.birdhouses = birdhouses; }
     public TcgCollectionSnapshot getTcg() { return tcg; }
     public void setTcg(TcgCollectionSnapshot tcg) { this.tcg = tcg; }
 
