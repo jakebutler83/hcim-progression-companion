@@ -12,6 +12,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Item;
@@ -86,12 +87,58 @@ public class AccountSnapshotService
         int remaining = Math.max(0, client.getVarpValue(VarPlayerID.SLAYER_COUNT));
         int points = Math.max(0, client.getVarbitValue(VarbitID.SLAYER_POINTS));
         int streak = Math.max(0, client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED));
-        String task = targetId > 0 && client.getNpcDefinition(targetId) != null
-            ? client.getNpcDefinition(targetId).getName() : (targetId > 0 ? "Task target #" + targetId : "No active task");
+        String task = readSlayerTask(client, targetId, remaining);
         int masterId = Math.max(0, client.getVarbitValue(VarbitID.SLAYER_MASTER));
-        String master = masterId > 0 && client.getNpcDefinition(masterId) != null
-            ? client.getNpcDefinition(masterId).getName() : "Unknown master";
+        String master = slayerMasterName(masterId);
         return new SlayerSnapshot(task, remaining, points, streak, master, targetId, System.currentTimeMillis());
+    }
+
+    private String readSlayerTask(Client client, int targetId, int remaining)
+    {
+        if (targetId <= 0 || remaining <= 0) return "No active task";
+        try
+        {
+            int taskRow;
+            if (targetId == 98)
+            {
+                var bossRows = client.getDBRowsByValue(DBTableID.SlayerTaskSublist.ID,
+                    DBTableID.SlayerTaskSublist.COL_TASK_SUBTABLE_ID, 0,
+                    client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
+                if (bossRows.isEmpty()) return "Task target #" + targetId;
+                taskRow = (Integer) client.getDBTableField(bossRows.get(0), DBTableID.SlayerTaskSublist.COL_TASK, 0)[0];
+            }
+            else
+            {
+                var taskRows = client.getDBRowsByValue(DBTableID.SlayerTask.ID,
+                    DBTableID.SlayerTask.COL_ID, 0, targetId);
+                if (taskRows.isEmpty()) return "Task target #" + targetId;
+                taskRow = taskRows.get(0);
+            }
+            Object[] name = client.getDBTableField(taskRow, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0);
+            if (name.length > 0 && name[0] instanceof String && !((String) name[0]).isEmpty()) return (String) name[0];
+        }
+        catch (RuntimeException ignored)
+        {
+            // Keep the sync alive if Jagex changes the DB schema between client revisions.
+        }
+        return "Task target #" + targetId;
+    }
+
+    private String slayerMasterName(int id)
+    {
+        switch (id)
+        {
+            case 0: return "Turael";
+            case 1: return "Spria";
+            case 2: return "Mazchna";
+            case 4: return "Vannaka";
+            case 5: return "Chaeldar";
+            case 6: return "Nieve";
+            case 7: return "Krystilia";
+            case 8: return "Duradel";
+            case 9: return "Konar";
+            default: return "Unknown master";
+        }
     }
 
     private void applyAchievementDiaryCompletions(Client client, AccountSnapshot snapshot)
