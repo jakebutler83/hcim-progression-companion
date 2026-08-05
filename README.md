@@ -8,6 +8,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 
 - Automatic quest completion syncing
 - One-click account snapshot syncing
+- Optional batched automatic account snapshots after skill, quest, diary, or collection-log changes
 - Skill level progression updates
 - Official hiscore boss KC syncing for the website Luck Tracker
 - Brutus KC support through RuneLite's current official hiscore catalog
@@ -33,10 +34,11 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 10. Enable **Track NPC loot value** if you want estimated loot gains in Weekly Snapshot. The total is sent only when you manually press **Sync Account**.
 11. Enable **Sync Group Storage**, then open the shared storage in game whenever you want to refresh the website Group Bank.
 12. Enable exact location sharing only if you want the HCIM live map and optional exact Social Hub pins.
+13. Enable **Automatic account snapshots** if you want the companion to queue full progression uploads automatically. Changes are coalesced during a short quiet period, rate-limited to one full snapshot every five minutes, and periodically refreshed while logged in.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
-Live location and Social Hub presence share one request, refresh every five minutes, and update earlier after meaningful world, region, activity, equipment, or sharing changes. Randomized timing prevents large groups of clients from syncing together, and network failures use exponential retry backoff. Manual Account Sync remains available whenever skills, quests, boss KC, clues, or Weekly Snapshot data should update immediately.
+Live location and Social Hub presence share one request, refresh every five minutes, and update earlier after meaningful world, region, activity, equipment, or sharing changes. Randomized timing prevents large groups of clients from syncing together, and network failures use exponential retry backoff. Automatic account snapshots are opt-in, coalesce skill/quest/diary/collection-log changes, and keep the manual Account Sync button available for an immediate refresh. Hiscore-backed boss KC and clue totals still follow the official hiscore update timing.
 
 ## Privacy
 

@@ -11,6 +11,7 @@ import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.Quest;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ChatMessage;
@@ -62,6 +63,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long TEARS_SYNC_COOLDOWN_MILLIS = 60_000L;
     private static final long BIRDHOUSE_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long SLAYER_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
+    private static final long AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
+    private static final long AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS = 15 * 60_000L;
+    private static final int AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS = 30;
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -114,6 +118,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastBirdhouseSyncAt;
     private volatile long lastSlayerSyncAt;
     private volatile String lastSlayerFingerprint = "";
+    private volatile String lastProgressFingerprint = "";
+    private volatile boolean automaticAccountSyncDirty;
+    private int automaticAccountSyncDebounceTicks;
+    private volatile long lastAutomaticAccountSyncAt;
+    private volatile boolean accountSyncInFlight;
 
     @Override
     protected void startUp()
@@ -148,6 +157,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastBirdhouseSyncAt = 0L;
         lastSlayerSyncAt = 0L;
         lastSlayerFingerprint = "";
+        lastProgressFingerprint = "";
+        automaticAccountSyncDirty = false;
+        automaticAccountSyncDebounceTicks = 0;
+        lastAutomaticAccountSyncAt = 0L;
+        accountSyncInFlight = false;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
 
@@ -187,6 +201,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         personalBankSyncInFlight = false;
         liveSyncInFlight = false;
         clanSyncInFlight = false;
+        accountSyncInFlight = false;
         liveBackoff.reset();
         clanBackoff.reset();
         clanChangeCooldown.reset();
@@ -227,6 +242,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
+        if (accountSyncInFlight)
+        {
+            return;
+        }
+        accountSyncInFlight = true;
+
         if (panel != null) panel.setAccountSyncing(true);
 
         clientThread.invokeLater(() ->
@@ -235,6 +256,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             {
                 if (client.getGameState() != GameState.LOGGED_IN)
                 {
+                    accountSyncInFlight = false;
                     SwingUtilities.invokeLater(() ->
                     {
                         if (panel != null) panel.showAccountSyncError("Log into the game first");
@@ -245,6 +267,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker, itemManager);
                 if (snapshot == null)
                 {
+                    accountSyncInFlight = false;
                     SwingUtilities.invokeLater(() ->
                     {
                         if (panel != null) panel.showAccountSyncError("Could not read account data");
@@ -269,16 +292,33 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     : CompletableFuture.completedFuture(null);
                 CompletableFuture.allOf(hiscoreFuture, tcgFuture).whenComplete((ignored, combinedError) ->
                     {
-                        HiscoreResult hiscoreResult = hiscoreFuture.getNow(null);
-                        TcgCollectionSnapshot tcgSnapshot = tcgFuture.getNow(null);
-                        if (tcgSnapshot != null) snapshot.setTcg(tcgSnapshot);
-                        SwingUtilities.invokeLater(() -> {
-                            if (panel != null) panel.showTcgStatus(tcgSnapshot, config.tcgCollectionSyncEnabled());
-                        });
-                        if (hiscoreResult != null)
+                        HiscoreResult hiscoreResult = null;
+                        TcgCollectionSnapshot tcgSnapshot = null;
+                        try
                         {
-                            applyHiscoreClueCounts(snapshot, hiscoreResult);
-                            applyHiscoreBossKillCounts(snapshot, hiscoreResult);
+                            if (!hiscoreFuture.isCompletedExceptionally())
+                            {
+                                hiscoreResult = hiscoreFuture.getNow(null);
+                            }
+                            if (!tcgFuture.isCompletedExceptionally())
+                            {
+                                tcgSnapshot = tcgFuture.getNow(null);
+                            }
+                        }
+                        catch (RuntimeException readError)
+                        {
+                            logger.debug("Optional hiscore or TCG data was unavailable", readError);
+                        }
+                        final HiscoreResult resolvedHiscore = hiscoreResult;
+                        final TcgCollectionSnapshot resolvedTcgSnapshot = tcgSnapshot;
+                        if (resolvedTcgSnapshot != null) snapshot.setTcg(resolvedTcgSnapshot);
+                        SwingUtilities.invokeLater(() -> {
+                            if (panel != null) panel.showTcgStatus(resolvedTcgSnapshot, config.tcgCollectionSyncEnabled());
+                        });
+                        if (resolvedHiscore != null)
+                        {
+                            applyHiscoreClueCounts(snapshot, resolvedHiscore);
+                            applyHiscoreBossKillCounts(snapshot, resolvedHiscore);
                         }
                         else
                         {
@@ -286,6 +326,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
                         }
 
                         syncService.syncAccount(config.apiBaseUrl(), token, snapshot, (result, error) ->
+                        {
+                            accountSyncInFlight = false;
                             SwingUtilities.invokeLater(() ->
                             {
                                 if (panel == null) return;
@@ -299,12 +341,13 @@ public class HcimProgressionCompanionPlugin extends Plugin
                                     result.getTaskUpdates(),
                                     result.getBossKillCountCount()
                                 );
-                            })
-                        );
+                            });
+                        });
                     });
             }
             catch (RuntimeException error)
             {
+                accountSyncInFlight = false;
                 logger.error("Account sync failed", error);
                 SwingUtilities.invokeLater(() ->
                 {
@@ -480,6 +523,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
         weeklyLootTrackerService.recordNpcLoot(event.getItems(), itemManager, configManager);
+        if (config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+        {
+            requestAutomaticAccountSync();
+        }
     }
 
     @Subscribe
@@ -503,6 +550,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     result.getTotalItems(),
                     collectionLogCaptureService.getClueCounts()
                 ));
+            }
+            if (result != null && config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+            {
+                requestAutomaticAccountSync();
             }
         });
     }
@@ -580,7 +631,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (birdhousesChanged && birdhouseNow - lastBirdhouseSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
             lastBirdhouseSyncAt = birdhouseNow;
-            syncAccountNow();
+            requestAutomaticAccountSync();
         }
         String slayerFingerprint = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":"
             + client.getVarpValue(VarPlayerID.SLAYER_COUNT) + ":"
@@ -591,7 +642,37 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (slayerChanged && birdhouseNow - lastSlayerSyncAt >= SLAYER_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
             lastSlayerSyncAt = birdhouseNow;
-            syncAccountNow();
+            requestAutomaticAccountSync();
+        }
+
+        if (config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+        {
+            if (tickCounter == 0)
+            {
+                String progressFingerprint = progressFingerprint();
+                if (lastProgressFingerprint.isEmpty())
+                {
+                    lastProgressFingerprint = progressFingerprint;
+                    requestAutomaticAccountSync();
+                }
+                else if (!progressFingerprint.equals(lastProgressFingerprint))
+                {
+                    lastProgressFingerprint = progressFingerprint;
+                    requestAutomaticAccountSync();
+                }
+            }
+
+            if (birdhouseNow - lastAutomaticAccountSyncAt >= AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS)
+            {
+                requestAutomaticAccountSync();
+            }
+            handleAutomaticAccountSync(birdhouseNow);
+        }
+        else
+        {
+            automaticAccountSyncDirty = false;
+            automaticAccountSyncDebounceTicks = 0;
+            lastProgressFingerprint = "";
         }
 
         handlePendingGroupStorage();
@@ -630,6 +711,101 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         syncLivePresence(token, state, now);
+    }
+
+    private void requestAutomaticAccountSync()
+    {
+        if (!config.automaticAccountSyncEnabled())
+        {
+            syncAccountNow();
+            return;
+        }
+
+        automaticAccountSyncDirty = true;
+        automaticAccountSyncDebounceTicks = AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS;
+    }
+
+    private void handleAutomaticAccountSync(long now)
+    {
+        if (!automaticAccountSyncDirty || accountSyncInFlight)
+        {
+            return;
+        }
+        if (automaticAccountSyncDebounceTicks > 0)
+        {
+            automaticAccountSyncDebounceTicks--;
+            return;
+        }
+        if (now - lastAutomaticAccountSyncAt < AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS)
+        {
+            return;
+        }
+
+        automaticAccountSyncDirty = false;
+        lastAutomaticAccountSyncAt = now;
+        syncAccountNow();
+    }
+
+    private String progressFingerprint()
+    {
+        StringBuilder fingerprint = new StringBuilder(512);
+        for (net.runelite.api.Skill skill : net.runelite.api.Skill.values())
+        {
+            if (skill == net.runelite.api.Skill.OVERALL)
+            {
+                continue;
+            }
+            fingerprint.append(client.getRealSkillLevel(skill)).append(':')
+                .append(client.getSkillExperience(skill)).append('|');
+        }
+
+        fingerprint.append(client.getVarpValue(net.runelite.api.VarPlayer.QUEST_POINTS)).append('|')
+            .append(client.getVarpValue(net.runelite.api.VarPlayer.CLOG_LOGGED)).append('|')
+            .append(client.getVarpValue(net.runelite.api.VarPlayer.CLOG_TOTAL)).append('|');
+
+        for (Quest quest : Quest.values())
+        {
+            try
+            {
+                fingerprint.append(quest.getState(client).ordinal());
+            }
+            catch (RuntimeException ignored)
+            {
+                fingerprint.append('?');
+            }
+        }
+
+        int[] diaryVarbits = {
+            VarbitID.ARDOUGNE_DIARY_EASY_COMPLETE, VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE,
+            VarbitID.ARDOUGNE_DIARY_HARD_COMPLETE, VarbitID.ARDOUGNE_DIARY_ELITE_COMPLETE,
+            VarbitID.LUMBRIDGE_DIARY_EASY_COMPLETE, VarbitID.LUMBRIDGE_DIARY_MEDIUM_COMPLETE,
+            VarbitID.LUMBRIDGE_DIARY_HARD_COMPLETE, VarbitID.LUMBRIDGE_DIARY_ELITE_COMPLETE,
+            VarbitID.VARROCK_DIARY_EASY_COMPLETE, VarbitID.VARROCK_DIARY_MEDIUM_COMPLETE,
+            VarbitID.VARROCK_DIARY_HARD_COMPLETE, VarbitID.VARROCK_DIARY_ELITE_COMPLETE,
+            VarbitID.FALADOR_DIARY_EASY_COMPLETE, VarbitID.FALADOR_DIARY_MEDIUM_COMPLETE,
+            VarbitID.FALADOR_DIARY_HARD_COMPLETE, VarbitID.FALADOR_DIARY_ELITE_COMPLETE,
+            VarbitID.KANDARIN_DIARY_EASY_COMPLETE, VarbitID.KANDARIN_DIARY_MEDIUM_COMPLETE,
+            VarbitID.KANDARIN_DIARY_HARD_COMPLETE, VarbitID.KANDARIN_DIARY_ELITE_COMPLETE,
+            VarbitID.KARAMJA_EASY_COUNT, VarbitID.KARAMJA_MED_COUNT,
+            VarbitID.KARAMJA_HARD_COUNT, VarbitID.KARAMJA_DIARY_ELITE_COMPLETE,
+            VarbitID.MORYTANIA_DIARY_EASY_COMPLETE, VarbitID.MORYTANIA_DIARY_MEDIUM_COMPLETE,
+            VarbitID.MORYTANIA_DIARY_HARD_COMPLETE, VarbitID.MORYTANIA_DIARY_ELITE_COMPLETE,
+            VarbitID.FREMENNIK_DIARY_EASY_COMPLETE, VarbitID.FREMENNIK_DIARY_MEDIUM_COMPLETE,
+            VarbitID.FREMENNIK_DIARY_HARD_COMPLETE, VarbitID.FREMENNIK_DIARY_ELITE_COMPLETE,
+            VarbitID.DESERT_DIARY_EASY_COMPLETE, VarbitID.DESERT_DIARY_MEDIUM_COMPLETE,
+            VarbitID.DESERT_DIARY_HARD_COMPLETE, VarbitID.DESERT_DIARY_ELITE_COMPLETE,
+            VarbitID.WESTERN_DIARY_EASY_COMPLETE, VarbitID.WESTERN_DIARY_MEDIUM_COMPLETE,
+            VarbitID.WESTERN_DIARY_HARD_COMPLETE, VarbitID.WESTERN_DIARY_ELITE_COMPLETE,
+            VarbitID.WILDERNESS_DIARY_EASY_COMPLETE, VarbitID.WILDERNESS_DIARY_MEDIUM_COMPLETE,
+            VarbitID.WILDERNESS_DIARY_HARD_COMPLETE, VarbitID.WILDERNESS_DIARY_ELITE_COMPLETE,
+            VarbitID.KOUREND_DIARY_EASY_COMPLETE, VarbitID.KOUREND_DIARY_MEDIUM_COMPLETE,
+            VarbitID.KOUREND_DIARY_HARD_COMPLETE, VarbitID.KOUREND_DIARY_ELITE_COMPLETE
+        };
+        for (int varbitId : diaryVarbits)
+        {
+            fingerprint.append(client.getVarbitValue(varbitId)).append('|');
+        }
+        return fingerprint.toString();
     }
 
     private void syncLivePresence(String token, PlayerState state, long now)
