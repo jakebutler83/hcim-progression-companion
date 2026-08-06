@@ -492,7 +492,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         String normalized = message.replaceAll("<[^>]+>", " ").toLowerCase(Locale.ROOT);
-        if (!normalized.contains("tears of guthix") || !normalized.contains("completed"))
+        boolean completedVisit = normalized.contains("tears collected:")
+            || (normalized.contains("tears of guthix") && normalized.contains("completed"));
+        if (!completedVisit)
         {
             return;
         }
