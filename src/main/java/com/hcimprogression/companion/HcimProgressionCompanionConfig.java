@@ -121,7 +121,7 @@ public interface HcimProgressionCompanionConfig extends Config
     @ConfigItem(
         keyName = "automaticAccountSyncEnabled",
         name = "Automatic account snapshots",
-        description = "Queues a full account snapshot after skill, quest, diary, or collection-log changes, then batches it after a short quiet period. The manual Sync Account button remains available.",
+        description = "Automatically syncs every 15 minutes, on logout, quest/diary/collection-log changes, and meaningful skill levels above 40. Burst events (such as clue casket rewards) are coalesced into one upload. The manual Sync Account button remains available.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 8
     )
