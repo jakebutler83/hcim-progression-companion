@@ -270,6 +270,32 @@ public class SyncService {
                 });
     }
 
+    public void syncClanSkillWeek(
+            String apiBaseUrl,
+            String token,
+            String clanName,
+            AccountSnapshot snapshot,
+            Consumer<String> callback) {
+        StringBuilder skills = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<String, AccountSnapshot.SkillSnapshot> entry : snapshot.getSkills().entrySet()) {
+            if (!first) skills.append(',');
+            first = false;
+            AccountSnapshot.SkillSnapshot value = entry.getValue();
+            skills.append('"').append(escape(entry.getKey())).append("\":{")
+                    .append("\"level\":").append(value.getLevel()).append(',')
+                    .append("\"xp\":").append(value.getXp()).append('}');
+        }
+        skills.append('}');
+        String json = "{\"clanName\":\"" + escape(clanName) + "\",\"playerName\":\""
+                + escape(snapshot.getPlayerName()) + "\",\"skills\":" + skills + "}";
+        post(apiBaseUrl, "clan-skill-week", token, json).whenComplete((body, error) -> {
+            if (error != null) callback.accept(friendly(error));
+            else if (!body.contains("\"ok\":true")) callback.accept(errorValue(body));
+            else callback.accept(null);
+        });
+    }
+
     public void syncClanEvents(
             String apiBaseUrl,
             String token,

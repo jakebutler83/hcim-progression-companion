@@ -33,13 +33,25 @@ public interface HcimProgressionCompanionConfig extends Config
         return false;
     }
 
+    @ConfigItem(
+        keyName = "clanSkillWeekSyncEnabled",
+        name = "Share clan Skill of the Week XP",
+        description = "Opt in to share your current skill XP with the RuneScape clan Skill of the Week leaderboard. Only your skill totals and RuneScape name are shared.",
+        warning = "This feature shares your skill XP with members viewing the same clan leaderboard",
+        position = 2
+    )
+    default boolean clanSkillWeekSyncEnabled()
+    {
+        return false;
+    }
+
 
     @ConfigItem(
         keyName = "socialClanEventsSyncEnabled",
         name = "Sync clan events",
         description = "Imports the in-game Clan Settings Events list into the Progression Path clan calendar whenever you open that interface.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 2
+        position = 3
     )
     default boolean socialClanEventsSyncEnabled()
     {
@@ -51,7 +63,7 @@ public interface HcimProgressionCompanionConfig extends Config
         name = "Share exact group location",
         description = "Securely shares your exact location with your HCIM Progression group and allows exact Social Hub pins when enabled on the website.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 3
+        position = 4
     )
     default boolean locationSharingEnabled()
     {
@@ -63,7 +75,7 @@ public interface HcimProgressionCompanionConfig extends Config
         name = "Sync Group Storage",
         description = "Uploads the contents of your Group Ironman shared storage to your private Progression Path group whenever you open or change it.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 4
+        position = 5
     )
     default boolean groupStorageSyncEnabled()
     {
@@ -75,7 +87,7 @@ public interface HcimProgressionCompanionConfig extends Config
         name = "Sync Personal Bank",
         description = "Uploads your own bank to your private Progression Path journal whenever you open or change the normal bank interface.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 5
+        position = 6
     )
     default boolean personalBankSyncEnabled()
     {

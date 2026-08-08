@@ -101,6 +101,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final SyncBackoff clanBackoff = new SyncBackoff();
     private final SyncCooldown clanChangeCooldown = new SyncCooldown(CLAN_CHANGE_COOLDOWN_MILLIS);
     private volatile boolean clanEventsSyncInFlight;
+    private volatile AccountSnapshot latestAccountSnapshot;
     private volatile String lastClanEventsFingerprint = "";
     private boolean clanEventsWidgetOpen;
     private GroupStorageSnapshot pendingGroupStorageSnapshot;
@@ -274,6 +275,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     });
                     return;
                 }
+                latestAccountSnapshot = snapshot;
                 if (accountKey(snapshot.getPlayerName()).equals(tearsVisitAccountKey))
                 {
                     snapshot.setLastTearsVisitAt(lastTearsVisitAt);
@@ -1111,6 +1113,13 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             nextClanSyncAt = now + (5 * 60_000L);
             return;
+        }
+
+        if (config.clanSkillWeekSyncEnabled() && latestAccountSnapshot != null)
+        {
+            syncService.syncClanSkillWeek(config.apiBaseUrl(), token, clanSnapshot.getClanName(), latestAccountSnapshot, error -> {
+                if (error != null) logger.debug("Clan Skill of the Week sync failed: {}", error);
+            });
         }
 
         String fingerprint = clanFingerprint(clanSnapshot);
