@@ -14,6 +14,7 @@ import net.runelite.api.ItemContainer;
 import net.runelite.api.Quest;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.ClanChannelChanged;
 import net.runelite.api.events.ClanMemberJoined;
@@ -124,6 +125,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private int automaticAccountSyncDebounceTicks;
     private volatile long lastAutomaticAccountSyncAt;
     private volatile boolean accountSyncInFlight;
+    private volatile GameState lastObservedGameState = GameState.UNKNOWN;
 
     @Override
     protected void startUp()
@@ -163,6 +165,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         automaticAccountSyncDebounceTicks = 0;
         lastAutomaticAccountSyncAt = 0L;
         accountSyncInFlight = false;
+        lastObservedGameState = client.getGameState();
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
 
@@ -203,6 +206,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         liveSyncInFlight = false;
         clanSyncInFlight = false;
         accountSyncInFlight = false;
+        lastObservedGameState = GameState.UNKNOWN;
         liveBackoff.reset();
         clanBackoff.reset();
         clanChangeCooldown.reset();
@@ -236,6 +240,18 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void syncAccountNow()
     {
+        syncAccountNow(false);
+    }
+
+    /**
+     * Sync the most recent in-game snapshot when logout has already changed the
+     * client state. RuneLite clears the live game state before the logout event
+     * is delivered, but the snapshot captured during the last tick is still a
+     * reliable representation of the account and can be enriched with fresh
+     * hiscore data.
+     */
+    private void syncAccountNow(boolean allowCachedSnapshot)
+    {
         String token = deviceToken();
         if (token.isEmpty())
         {
@@ -255,7 +271,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             try
             {
-                if (client.getGameState() != GameState.LOGGED_IN)
+                if (client.getGameState() != GameState.LOGGED_IN && (!allowCachedSnapshot || latestAccountSnapshot == null))
                 {
                     accountSyncInFlight = false;
                     SwingUtilities.invokeLater(() ->
@@ -265,7 +281,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     return;
                 }
 
-                AccountSnapshot snapshot = accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker, itemManager);
+                AccountSnapshot snapshot = client.getGameState() == GameState.LOGGED_IN
+                    ? accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker, itemManager)
+                    : latestAccountSnapshot;
                 if (snapshot == null)
                 {
                     accountSyncInFlight = false;
@@ -485,6 +503,29 @@ public class HcimProgressionCompanionPlugin extends Plugin
     }
 
     @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        GameState nextState = event.getGameState();
+        GameState previousState = lastObservedGameState;
+        lastObservedGameState = nextState;
+
+        // Capture the final cached snapshot as soon as the player logs out.
+        // This mirrors RuneLite's high-score refresh behavior without waiting
+        // for the next login, and avoids trying to read cleared client widgets.
+        if (previousState == GameState.LOGGED_IN
+            && nextState != GameState.LOGGED_IN
+            && config.automaticAccountSyncEnabled()
+            && !deviceToken().isEmpty()
+            && latestAccountSnapshot != null)
+        {
+            automaticAccountSyncDirty = false;
+            automaticAccountSyncDebounceTicks = 0;
+            lastAutomaticAccountSyncAt = System.currentTimeMillis();
+            syncAccountNow(true);
+        }
+    }
+
+    @Subscribe
     public void onChatMessage(ChatMessage event)
     {
         String message = event.getMessage();
@@ -494,6 +535,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         String normalized = message.replaceAll("<[^>]+>", " ").toLowerCase(Locale.ROOT);
+        boolean collectionLogEvent = normalized.contains("new collection log item")
+            || normalized.contains("added to your collection log")
+            || normalized.contains("collection log entry");
+        if (collectionLogEvent && config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+        {
+            // Collection-log/clue rewards often arrive as several chat lines in
+            // one game tick. The normal automatic scheduler coalesces them,
+            // so one casket batch produces one upload instead of one per item.
+            requestAutomaticAccountSync();
+        }
+
         boolean completedVisit = normalized.contains("tears collected:")
             || (normalized.contains("tears of guthix") && normalized.contains("completed"));
         if (!completedVisit)
@@ -759,8 +811,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
             {
                 continue;
             }
-            fingerprint.append(client.getRealSkillLevel(skill)).append(':')
-                .append(client.getSkillExperience(skill)).append('|');
+            // XP changes at low levels are frequent and do not need a network
+            // snapshot. Track level transitions once a skill is meaningfully
+            // progressed; the 15-minute heartbeat still captures exact XP.
+            int level = client.getRealSkillLevel(skill);
+            fingerprint.append(level > 40 ? level : 0).append('|');
         }
 
         fingerprint.append(client.getVarpValue(net.runelite.api.VarPlayer.QUEST_POINTS)).append('|')
