@@ -6,6 +6,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -126,6 +129,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastAutomaticAccountSyncAt;
     private volatile boolean accountSyncInFlight;
     private volatile GameState lastObservedGameState = GameState.UNKNOWN;
+    private ScheduledExecutorService automaticAccountSyncScheduler;
 
     @Override
     protected void startUp()
@@ -185,12 +189,33 @@ public class HcimProgressionCompanionPlugin extends Plugin
         else panel.showPersonalBankDisabled();
         panel.showTcgStatus(null, config.tcgCollectionSyncEnabled());
 
+        // Keep the periodic snapshot independent of the game-tick debounce
+        // loop. RuneLite can pause or delay ticks while loading worlds, opening
+        // interfaces, or sitting at the login screen; the scheduler simply
+        // requests a snapshot when the next 15-minute window arrives.
+        automaticAccountSyncScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "hcim-companion-account-sync");
+            thread.setDaemon(true);
+            return thread;
+        });
+        automaticAccountSyncScheduler.scheduleAtFixedRate(
+            this::runPeriodicAutomaticAccountSync,
+            AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS,
+            AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS,
+            TimeUnit.MILLISECONDS
+        );
+
         logger.info("HCIM Progression Companion started.");
     }
 
     @Override
     protected void shutDown()
     {
+        if (automaticAccountSyncScheduler != null)
+        {
+            automaticAccountSyncScheduler.shutdownNow();
+            automaticAccountSyncScheduler = null;
+        }
         if (navigationButton != null) clientToolbar.removeNavigation(navigationButton);
         panel = null;
         navigationButton = null;
@@ -211,6 +236,26 @@ public class HcimProgressionCompanionPlugin extends Plugin
         clanBackoff.reset();
         clanChangeCooldown.reset();
         logger.info("HCIM Progression Companion stopped.");
+    }
+
+    private void runPeriodicAutomaticAccountSync()
+    {
+        if (!config.automaticAccountSyncEnabled() || deviceToken().isEmpty()
+            || client.getGameState() != GameState.LOGGED_IN || accountSyncInFlight)
+        {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now - lastAutomaticAccountSyncAt < AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS)
+        {
+            return;
+        }
+
+        lastAutomaticAccountSyncAt = now;
+        automaticAccountSyncDirty = false;
+        automaticAccountSyncDebounceTicks = 0;
+        syncAccountNow();
     }
 
     private void linkCompanion(String code)
@@ -265,7 +310,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
         accountSyncInFlight = true;
 
-        if (panel != null) panel.setAccountSyncing(true);
+        if (panel != null)
+        {
+            SwingUtilities.invokeLater(() -> {
+                if (panel == null) return;
+                panel.showAccountSyncAttempt();
+                panel.setAccountSyncing(true);
+            });
+        }
 
         clientThread.invokeLater(() ->
         {
@@ -718,10 +770,6 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 }
             }
 
-            if (birdhouseNow - lastAutomaticAccountSyncAt >= AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS)
-            {
-                requestAutomaticAccountSync();
-            }
             handleAutomaticAccountSync(birdhouseNow);
         }
         else

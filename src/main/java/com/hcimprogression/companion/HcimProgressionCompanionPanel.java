@@ -52,6 +52,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel questsUpdatedValue = new JLabel("—");
     private final JLabel tasksUpdatedValue = new JLabel("—");
     private final JLabel accountSyncTimeValue = new JLabel("—");
+    private final JLabel accountSyncAttemptValue = new JLabel("—");
+    private final JLabel accountSyncErrorValue = new JLabel("None");
     private final JLabel collectionCaptureValue = new JLabel("Open clue pages");
     private final JLabel clueCountsValue = new JLabel("—");
     private final JLabel tcgValue = new JLabel("Disabled");
@@ -130,6 +132,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountBody.add(metrics);
         accountBody.add(Box.createVerticalStrut(5));
         accountBody.add(createRow("Last sync", accountSyncTimeValue));
+        accountBody.add(createRow("Last attempt", accountSyncAttemptValue));
+        accountBody.add(createRow("Last error", accountSyncErrorValue));
         accountBody.add(createRow("Collection Log", collectionCaptureValue));
         accountBody.add(createRow("Clue totals", clueCountsValue));
         accountBody.add(createRow("OSRS TCG", tcgValue));
@@ -383,13 +387,26 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         tasksUpdatedValue.setForeground(SUCCESS);
         accountSyncTimeValue.setText(LocalTime.now().format(TIME_FORMAT));
         accountSyncTimeValue.setForeground(SUCCESS);
+        accountSyncErrorValue.setText("None");
+        accountSyncErrorValue.setForeground(MUTED);
+    }
+
+    public void showAccountSyncAttempt()
+    {
+        accountSyncAttemptValue.setText(LocalTime.now().format(TIME_FORMAT));
+        accountSyncAttemptValue.setForeground(WARNING);
+        accountSyncErrorValue.setText("None");
+        accountSyncErrorValue.setForeground(MUTED);
     }
 
     public void showAccountSyncError(String message)
     {
         setAccountSyncing(false);
-        accountSyncStatusValue.setText(message == null || message.isEmpty() ? "Sync failed" : message);
+        String resolved = message == null || message.isEmpty() ? "Sync failed" : message;
+        accountSyncStatusValue.setText(resolved);
         accountSyncStatusValue.setForeground(ERROR);
+        accountSyncErrorValue.setText(resolved);
+        accountSyncErrorValue.setForeground(ERROR);
     }
 
     public void showTcgStatus(TcgCollectionSnapshot snapshot, boolean enabled)
