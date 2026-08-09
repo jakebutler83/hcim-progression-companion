@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
@@ -17,6 +19,7 @@ import net.runelite.client.config.ConfigManager;
  */
 public class FarmRunTracker
 {
+    private static final Logger LOG = Logger.getLogger(FarmRunTracker.class.getName());
     private static final String CONFIG_GROUP = "hcimprogression.farmruns";
     private static final PatchDef[] PATCHES = {
         new PatchDef("herb-catherby", "Catherby", "Herb", VarbitID.FARMING_TRANSMIT_A, 80),
@@ -147,9 +150,10 @@ public class FarmRunTracker
                 }
             }
         }
-        catch (ReflectiveOperationException | RuntimeException ignored)
+        catch (ReflectiveOperationException | RuntimeException error)
         {
             // Time Tracking is optional. The raw transmit fallback remains available.
+            LOG.log(Level.FINE, "Unable to read RuneLite Time Tracking farming records", error);
         }
         return result;
     }
