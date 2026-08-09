@@ -123,9 +123,10 @@ public class FarmRunTracker
             {
                 int raw = Integer.parseInt(parts[0]);
                 long changedAt = Long.parseLong(parts[1]);
+                boolean waiting = isWaitingForPlanting(types[i], raw);
                 boolean harvestable = isHarvestable(types[i], raw);
-                long readyAt = raw <= 0 || harvestable ? 0 : changedAt + durationMinutes(types[i]) * 60L;
-                String state = raw <= 0 ? "empty" : harvestable || readyAt <= now ? "ready" : "growing";
+                long readyAt = waiting || harvestable ? 0 : changedAt + durationMinutes(types[i]) * 60L;
+                String state = waiting ? "waiting" : harvestable || readyAt <= now ? "ready" : "growing";
                 result.getPatches().add(new FarmRunSnapshot.Patch("farm-catherby-" + varbits[i], "Catherby · " + names[i], types[i], state, raw, changedAt, readyAt));
             }
             catch (NumberFormatException ignored) { }
@@ -179,9 +180,10 @@ public class FarmRunTracker
                         continue;
                     }
                     String cropState = cropState(patch, rawState);
+                    boolean waiting = isWaitingForPlanting(type, rawState);
                     boolean harvestable = "HARVESTABLE".equals(cropState);
-                    long readyAt = rawState <= 0 || harvestable ? 0 : changedAt + durationMinutes(type) * 60L;
-                    String state = rawState <= 0 ? "empty" : harvestable || readyAt <= now ? "ready" : "growing";
+                    long readyAt = waiting || harvestable ? 0 : changedAt + durationMinutes(type) * 60L;
+                    String state = waiting ? "waiting" : harvestable || readyAt <= now ? "ready" : "growing";
                     String name = String.valueOf(getName.invoke(patch));
                     String id = "farm-" + slug(location) + "-" + varbit;
                     result.getPatches().add(new FarmRunSnapshot.Patch(id, location + " · " + name, type, state, rawState, changedAt, readyAt));
@@ -224,6 +226,13 @@ public class FarmRunTracker
             return (rawState - 8) % 7 <= 2;
         }
         return false;
+    }
+
+    private static boolean isWaitingForPlanting(String type, int rawState)
+    {
+        // After the last herb is picked, RuneLite reports the weeds stages
+        // (0–3). The patch is no longer growing; it is waiting for planting.
+        return "Herb".equalsIgnoreCase(type) && rawState >= 0 && rawState <= 3;
     }
     private static Object createFarmingWorld()
     {
