@@ -2,6 +2,10 @@ package com.hcimprogression.companion;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
@@ -34,7 +38,12 @@ public class FarmRunTracker
     };
     private final ConfigManager configManager;
     private final Map<Integer, State> states = new LinkedHashMap<>();
-    public FarmRunTracker(ConfigManager configManager) { this.configManager = configManager; }
+    private final Object farmingWorld;
+    public FarmRunTracker(ConfigManager configManager)
+    {
+        this.configManager = configManager;
+        this.farmingWorld = createFarmingWorld();
+    }
 
     public boolean update(Client client)
     {
@@ -67,6 +76,11 @@ public class FarmRunTracker
 
     public FarmRunSnapshot snapshot()
     {
+        FarmRunSnapshot tracked = timeTrackingSnapshot();
+        if (!tracked.getPatches().isEmpty())
+        {
+            return tracked;
+        }
         FarmRunSnapshot result = new FarmRunSnapshot();
         long now = System.currentTimeMillis() / 1000L;
         for (PatchDef patch : PATCHES)
@@ -78,6 +92,97 @@ public class FarmRunTracker
             result.getPatches().add(new FarmRunSnapshot.Patch(patch.id, patch.location, patch.type, status, state.value, state.changedAt, readyAt));
         }
         return result;
+    }
+    private FarmRunSnapshot timeTrackingSnapshot()
+    {
+        FarmRunSnapshot result = new FarmRunSnapshot();
+        if (farmingWorld == null)
+        {
+            return result;
+        }
+        try
+        {
+            Method getTabs = farmingWorld.getClass().getMethod("getTabs");
+            Object tabsValue = getTabs.invoke(farmingWorld);
+            if (!(tabsValue instanceof Map)) return result;
+            long now = System.currentTimeMillis() / 1000L;
+            for (Object entryObject : ((Map<?, ?>) tabsValue).entrySet())
+            {
+                Map.Entry<?, ?> entry = (Map.Entry<?, ?>) entryObject;
+                String type = titleCase(String.valueOf(entry.getKey()));
+                Object patches = entry.getValue();
+                if (!(patches instanceof Iterable)) continue;
+                for (Object patch : (Iterable<?>) patches)
+                {
+                    Method getRegion = patch.getClass().getMethod("getRegion");
+                    Method getName = patch.getClass().getMethod("getName");
+                    Method getVarbit = patch.getClass().getMethod("getVarbit");
+                    Object region = getRegion.invoke(patch);
+                    if (region == null) continue;
+                    Method getRegionName = region.getClass().getMethod("getName");
+                    Method getRegionId = region.getClass().getMethod("getRegionID");
+                    String location = String.valueOf(getRegionName.invoke(region));
+                    int regionId = ((Number) getRegionId.invoke(region)).intValue();
+                    int varbit = ((Number) getVarbit.invoke(patch)).intValue();
+                    String stored = configManager.getRSProfileConfiguration("timetracking", regionId + "." + varbit);
+                    if (stored == null) continue;
+                    String[] parts = stored.split(":");
+                    if (parts.length != 2) continue;
+                    int rawState;
+                    long changedAt;
+                    try
+                    {
+                        rawState = Integer.parseInt(parts[0]);
+                        changedAt = Long.parseLong(parts[1]);
+                    }
+                    catch (NumberFormatException ignored)
+                    {
+                        continue;
+                    }
+                    long readyAt = rawState <= 0 ? 0 : changedAt + durationMinutes(type) * 60L;
+                    String state = rawState <= 0 ? "empty" : readyAt <= now ? "ready" : "growing";
+                    String name = String.valueOf(getName.invoke(patch));
+                    String id = "farm-" + slug(location) + "-" + varbit;
+                    result.getPatches().add(new FarmRunSnapshot.Patch(id, location + " · " + name, type, state, rawState, changedAt, readyAt));
+                }
+            }
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            // Time Tracking is optional. The raw transmit fallback remains available.
+        }
+        return result;
+    }
+    private static Object createFarmingWorld()
+    {
+        try
+        {
+            Class<?> type = Class.forName("net.runelite.client.plugins.timetracking.farming.FarmingWorld");
+            Constructor<?> constructor = type.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            return constructor.newInstance();
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            return null;
+        }
+    }
+    private static int durationMinutes(String type)
+    {
+        String normalized = type.toLowerCase();
+        if (normalized.contains("fruit")) return 960;
+        if (normalized.contains("tree")) return 200;
+        if (normalized.contains("allotment") || normalized.contains("flower")) return 40;
+        return 80;
+    }
+    private static String titleCase(String value)
+    {
+        String lower = value.toLowerCase().replace('_', ' ');
+        return lower.isEmpty() ? "Other" : Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+    }
+    private static String slug(String value)
+    {
+        return value.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
     }
     private long readTimestamp(int varbit, int value) { String stored = configManager.getRSProfileConfiguration(CONFIG_GROUP, "patch." + varbit); if (stored == null) return 0; String[] parts=stored.split(":"); if(parts.length!=2)return 0; try{return Integer.parseInt(parts[0])==value?Long.parseLong(parts[1]):0;}catch(NumberFormatException ignored){return 0;} }
     private void writeTimestamp(int varbit,int value,long timestamp){configManager.setRSProfileConfiguration(CONFIG_GROUP,"patch."+varbit,value+":"+timestamp);}
