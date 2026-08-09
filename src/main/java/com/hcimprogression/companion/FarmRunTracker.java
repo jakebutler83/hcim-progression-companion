@@ -123,8 +123,9 @@ public class FarmRunTracker
             {
                 int raw = Integer.parseInt(parts[0]);
                 long changedAt = Long.parseLong(parts[1]);
-                long readyAt = raw <= 0 ? 0 : changedAt + durationMinutes(types[i]) * 60L;
-                String state = raw <= 0 ? "empty" : readyAt <= now ? "ready" : "growing";
+                boolean harvestable = isHarvestable(types[i], raw);
+                long readyAt = raw <= 0 || harvestable ? 0 : changedAt + durationMinutes(types[i]) * 60L;
+                String state = raw <= 0 ? "empty" : harvestable || readyAt <= now ? "ready" : "growing";
                 result.getPatches().add(new FarmRunSnapshot.Patch("farm-catherby-" + varbits[i], "Catherby · " + names[i], types[i], state, raw, changedAt, readyAt));
             }
             catch (NumberFormatException ignored) { }
@@ -177,8 +178,10 @@ public class FarmRunTracker
                     {
                         continue;
                     }
-                    long readyAt = rawState <= 0 ? 0 : changedAt + durationMinutes(type) * 60L;
-                    String state = rawState <= 0 ? "empty" : readyAt <= now ? "ready" : "growing";
+                    String cropState = cropState(patch, rawState);
+                    boolean harvestable = "HARVESTABLE".equals(cropState);
+                    long readyAt = rawState <= 0 || harvestable ? 0 : changedAt + durationMinutes(type) * 60L;
+                    String state = rawState <= 0 ? "empty" : harvestable || readyAt <= now ? "ready" : "growing";
                     String name = String.valueOf(getName.invoke(patch));
                     String id = "farm-" + slug(location) + "-" + varbit;
                     result.getPatches().add(new FarmRunSnapshot.Patch(id, location + " · " + name, type, state, rawState, changedAt, readyAt));
@@ -191,6 +194,36 @@ public class FarmRunTracker
             LOG.log(Level.FINE, "Unable to read RuneLite Time Tracking farming records", error);
         }
         return result;
+    }
+
+    private static String cropState(Object patch, int rawState)
+    {
+        try
+        {
+            Method getImplementation = accessible(patch.getClass(), "getImplementation");
+            Object implementation = getImplementation.invoke(patch);
+            Method forVarbitValue = accessible(implementation.getClass(), "forVarbitValue", int.class);
+            Object state = forVarbitValue.invoke(implementation, rawState);
+            if (state == null) return "";
+            Method getCropState = accessible(state.getClass(), "getCropState");
+            Object crop = getCropState.invoke(state);
+            return crop == null ? "" : String.valueOf(crop);
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            return "";
+        }
+    }
+
+    private static boolean isHarvestable(String type, int rawState)
+    {
+        // Time Tracking's herb implementation uses three harvestable values
+        // after every four growing values (8–10, 15–17, 22–24, ...).
+        if ("Herb".equalsIgnoreCase(type) && rawState >= 8)
+        {
+            return (rawState - 8) % 7 <= 2;
+        }
+        return false;
     }
     private static Object createFarmingWorld()
     {
@@ -206,9 +239,9 @@ public class FarmRunTracker
             return null;
         }
     }
-    private static Method accessible(Class<?> type, String name) throws NoSuchMethodException
+    private static Method accessible(Class<?> type, String name, Class<?>... parameterTypes) throws NoSuchMethodException
     {
-        Method method = type.getDeclaredMethod(name);
+        Method method = type.getDeclaredMethod(name, parameterTypes);
         method.setAccessible(true);
         return method;
     }
