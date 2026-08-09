@@ -459,6 +459,8 @@ public class SyncService {
                 + snapshot.getLastTearsVisitAt()
                 + ",\"birdhouses\":"
                 + birdhousesJson(snapshot.getBirdhouses())
+                + ",\"farmRuns\":"
+                + farmRunsJson(snapshot.getFarmRuns())
                 + ",\"slayer\":"
                 + slayerJson(snapshot.getSlayer())
                 + ",\"wornEquipment\":"
@@ -528,6 +530,25 @@ public class SyncService {
             + ",\"readyCount\":" + snapshot.getReadyCount()
             + ",\"nextReadyAt\":" + snapshot.getNextReadyAt()
             + ",\"houses\":" + houses + "}";
+    }
+
+    private String farmRunsJson(FarmRunSnapshot snapshot)
+    {
+        if (snapshot == null) return "null";
+        StringBuilder patches = new StringBuilder("[");
+        for (int i = 0; i < snapshot.getPatches().size(); i++) {
+            FarmRunSnapshot.Patch patch = snapshot.getPatches().get(i);
+            if (i > 0) patches.append(',');
+            patches.append('{').append("\"id\":\"").append(escape(patch.getId())).append("\",")
+                .append("\"location\":\"").append(escape(patch.getLocation())).append("\",")
+                .append("\"type\":\"").append(escape(patch.getType())).append("\",")
+                .append("\"state\":\"").append(escape(patch.getState())).append("\",")
+                .append("\"rawState\":").append(patch.getRawState()).append(',')
+                .append("\"lastChangedAt\":").append(patch.getLastChangedAt()).append(',')
+                .append("\"readyAt\":").append(patch.getReadyAt()).append('}');
+        }
+        patches.append(']');
+        return "{\"patches\":" + patches + "}";
     }
 
     private String slayerJson(SlayerSnapshot snapshot)

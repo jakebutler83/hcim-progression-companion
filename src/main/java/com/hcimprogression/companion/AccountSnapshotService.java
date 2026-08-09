@@ -20,7 +20,7 @@ import net.runelite.client.game.ItemManager;
 
 public class AccountSnapshotService
 {
-    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker, ItemManager itemManager)
+    public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker, FarmRunTracker farmRunTracker, ItemManager itemManager)
     {
         Player player = client.getLocalPlayer();
         if (player == null) return null;
@@ -62,6 +62,7 @@ public class AccountSnapshotService
         snapshot.getCollectionLog().put("total", client.getVarpValue(VarPlayer.CLOG_TOTAL));
         collectionLogCaptureService.applyTo(snapshot);
         if (birdhouseTracker != null) snapshot.setBirdhouses(birdhouseTracker.snapshot());
+        if (farmRunTracker != null) snapshot.setFarmRuns(farmRunTracker.snapshot());
         snapshot.setSlayer(readSlayer(client));
         captureWornEquipment(client, itemManager, snapshot);
         return snapshot;

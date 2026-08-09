@@ -90,6 +90,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final WeeklyLootTrackerService weeklyLootTrackerService = new WeeklyLootTrackerService();
     private final TcgCollectionSnapshotService tcgCollectionSnapshotService = new TcgCollectionSnapshotService();
     private BirdhouseTracker birdhouseTracker;
+    private FarmRunTracker farmRunTracker;
     @Inject private SyncService syncService;
     private HcimProgressionCompanionPanel panel;
     private NavigationButton navigationButton;
@@ -121,6 +122,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastTearsSyncTriggeredAt;
     private volatile String tearsVisitAccountKey = "";
     private volatile long lastBirdhouseSyncAt;
+    private volatile long lastFarmRunSyncAt;
     private volatile long lastSlayerSyncAt;
     private volatile String lastSlayerFingerprint = "";
     private volatile String lastProgressFingerprint = "";
@@ -162,6 +164,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastTearsSyncTriggeredAt = 0L;
         tearsVisitAccountKey = "";
         lastBirdhouseSyncAt = 0L;
+        lastFarmRunSyncAt = 0L;
         lastSlayerSyncAt = 0L;
         lastSlayerFingerprint = "";
         lastProgressFingerprint = "";
@@ -172,6 +175,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastObservedGameState = client.getGameState();
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
+        farmRunTracker = new FarmRunTracker(configManager);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
         navigationButton = NavigationButton.builder()
@@ -334,7 +338,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 }
 
                 AccountSnapshot snapshot = client.getGameState() == GameState.LOGGED_IN
-                    ? accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker, itemManager)
+                    ? accountSnapshotService.createSnapshot(client, collectionLogCaptureService, birdhouseTracker, farmRunTracker, itemManager)
                     : latestAccountSnapshot;
                 if (snapshot == null)
                 {
@@ -739,6 +743,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (birdhousesChanged && birdhouseNow - lastBirdhouseSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
             lastBirdhouseSyncAt = birdhouseNow;
+            requestAutomaticAccountSync();
+        }
+        boolean farmRunsChanged = farmRunTracker != null && farmRunTracker.update(client);
+        if (farmRunsChanged && birdhouseNow - lastFarmRunSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
+        {
+            lastFarmRunSyncAt = birdhouseNow;
             requestAutomaticAccountSync();
         }
         String slayerFingerprint = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":"
