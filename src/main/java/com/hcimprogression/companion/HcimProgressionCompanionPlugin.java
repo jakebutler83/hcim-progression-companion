@@ -566,6 +566,20 @@ public class HcimProgressionCompanionPlugin extends Plugin
         GameState previousState = lastObservedGameState;
         lastObservedGameState = nextState;
 
+        // A farm timer can be unchanged while the client is restarted or the
+        // account is switched.  In that case no varbit transition fires, so
+        // relying only on farm-change events leaves the website showing an
+        // empty board.  Upload the current Time Tracking snapshot once after
+        // every successful login as well.
+        if (nextState == GameState.LOGGED_IN
+            && previousState != GameState.LOGGED_IN
+            && config.automaticAccountSyncEnabled()
+            && !deviceToken().isEmpty())
+        {
+            lastFarmRunSyncAt = 0L;
+            requestFarmingAccountSync();
+        }
+
         // Capture the final cached snapshot as soon as the player logs out.
         // This mirrors RuneLite's high-score refresh behavior without waiting
         // for the next login, and avoids trying to read cleared client widgets.
