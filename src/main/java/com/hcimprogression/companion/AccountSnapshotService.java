@@ -62,7 +62,11 @@ public class AccountSnapshotService
         snapshot.getCollectionLog().put("total", client.getVarpValue(VarPlayer.CLOG_TOTAL));
         collectionLogCaptureService.applyTo(snapshot);
         if (birdhouseTracker != null) snapshot.setBirdhouses(birdhouseTracker.snapshot());
-        if (farmRunTracker != null) snapshot.setFarmRuns(farmRunTracker.snapshot());
+        if (farmRunTracker != null)
+        {
+            snapshot.setFarmRuns(farmRunTracker.snapshot());
+            System.out.println("[HCIM] farm snapshot patches=" + snapshot.getFarmRuns().getPatches().size());
+        }
         snapshot.setSlayer(readSlayer(client));
         captureWornEquipment(client, itemManager, snapshot);
         return snapshot;
