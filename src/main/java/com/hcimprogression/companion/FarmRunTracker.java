@@ -80,6 +80,15 @@ public class FarmRunTracker
     public FarmRunSnapshot snapshot()
     {
         FarmRunSnapshot tracked = timeTrackingSnapshot();
+        FarmRunSnapshot known = knownCatherbySnapshot();
+        if (!known.getPatches().isEmpty())
+        {
+            for (FarmRunSnapshot.Patch patch : known.getPatches())
+            {
+                boolean present = tracked.getPatches().stream().anyMatch(existing -> existing.getId().equals(patch.getId()));
+                if (!present) tracked.getPatches().add(patch);
+            }
+        }
         if (!tracked.getPatches().isEmpty())
         {
             return tracked;
@@ -93,6 +102,32 @@ public class FarmRunTracker
             long readyAt = state.value > 0 ? state.changedAt + patch.durationMinutes * 60L : 0;
             String status = state.value <= 0 ? "empty" : readyAt <= now ? "ready" : "growing";
             result.getPatches().add(new FarmRunSnapshot.Patch(patch.id, patch.location, patch.type, status, state.value, state.changedAt, readyAt));
+        }
+        return result;
+    }
+
+    private FarmRunSnapshot knownCatherbySnapshot()
+    {
+        FarmRunSnapshot result = new FarmRunSnapshot();
+        long now = System.currentTimeMillis() / 1000L;
+        String[] names = {"Allotment north", "Allotment south", "Flower", "Herb", "Compost"};
+        String[] types = {"Allotment", "Allotment", "Flower", "Herb", "Compost"};
+        int[] varbits = {4771, 4772, 4773, 4774, 4775};
+        for (int i = 0; i < varbits.length; i++)
+        {
+            String stored = configManager.getRSProfileConfiguration("timetracking", "11062." + varbits[i]);
+            if (stored == null) continue;
+            String[] parts = stored.split(":");
+            if (parts.length != 2) continue;
+            try
+            {
+                int raw = Integer.parseInt(parts[0]);
+                long changedAt = Long.parseLong(parts[1]);
+                long readyAt = raw <= 0 ? 0 : changedAt + durationMinutes(types[i]) * 60L;
+                String state = raw <= 0 ? "empty" : readyAt <= now ? "ready" : "growing";
+                result.getPatches().add(new FarmRunSnapshot.Patch("farm-catherby-" + varbits[i], "Catherby · " + names[i], types[i], state, raw, changedAt, readyAt));
+            }
+            catch (NumberFormatException ignored) { }
         }
         return result;
     }
