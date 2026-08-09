@@ -102,7 +102,7 @@ public class FarmRunTracker
         }
         try
         {
-            Method getTabs = farmingWorld.getClass().getMethod("getTabs");
+            Method getTabs = accessible(farmingWorld.getClass().getMethod("getTabs"));
             Object tabsValue = getTabs.invoke(farmingWorld);
             if (!(tabsValue instanceof Map)) return result;
             long now = System.currentTimeMillis() / 1000L;
@@ -114,13 +114,13 @@ public class FarmRunTracker
                 if (!(patches instanceof Iterable)) continue;
                 for (Object patch : (Iterable<?>) patches)
                 {
-                    Method getRegion = patch.getClass().getMethod("getRegion");
-                    Method getName = patch.getClass().getMethod("getName");
-                    Method getVarbit = patch.getClass().getMethod("getVarbit");
+                    Method getRegion = accessible(patch.getClass().getMethod("getRegion"));
+                    Method getName = accessible(patch.getClass().getMethod("getName"));
+                    Method getVarbit = accessible(patch.getClass().getMethod("getVarbit"));
                     Object region = getRegion.invoke(patch);
                     if (region == null) continue;
-                    Method getRegionName = region.getClass().getMethod("getName");
-                    Method getRegionId = region.getClass().getMethod("getRegionID");
+                    Method getRegionName = accessible(region.getClass().getMethod("getName"));
+                    Method getRegionId = accessible(region.getClass().getMethod("getRegionID"));
                     String location = String.valueOf(getRegionName.invoke(region));
                     int regionId = ((Number) getRegionId.invoke(region)).intValue();
                     int varbit = ((Number) getVarbit.invoke(patch)).intValue();
@@ -166,6 +166,11 @@ public class FarmRunTracker
         {
             return null;
         }
+    }
+    private static Method accessible(Method method)
+    {
+        method.setAccessible(true);
+        return method;
     }
     private static int durationMinutes(String type)
     {
