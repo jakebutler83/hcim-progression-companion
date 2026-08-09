@@ -66,6 +66,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long CLAN_CHANGE_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long TEARS_SYNC_COOLDOWN_MILLIS = 60_000L;
     private static final long BIRDHOUSE_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
+    private static final long FARM_RUN_SYNC_COOLDOWN_MILLIS = 60_000L;
     private static final long SLAYER_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS = 15 * 60_000L;
@@ -602,6 +603,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
             requestAutomaticAccountSync();
         }
 
+        boolean farmingEvent = normalized.contains("you plant")
+            || normalized.contains("you harvest")
+            || normalized.contains("you clear the patch")
+            || normalized.contains("the patch is now empty")
+            || normalized.contains("you pick some")
+            || normalized.contains("you have successfully grown");
+        if (farmingEvent && config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+        {
+            requestFarmingAccountSync();
+        }
+
         boolean completedVisit = normalized.contains("tears collected:")
             || (normalized.contains("tears of guthix") && normalized.contains("completed"));
         if (!completedVisit)
@@ -746,10 +758,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
             requestAutomaticAccountSync();
         }
         boolean farmRunsChanged = farmRunTracker != null && farmRunTracker.update(client);
-        if (farmRunsChanged && birdhouseNow - lastFarmRunSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
+        if (farmRunsChanged && birdhouseNow - lastFarmRunSyncAt >= FARM_RUN_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
             lastFarmRunSyncAt = birdhouseNow;
-            requestAutomaticAccountSync();
+            requestFarmingAccountSync();
         }
         String slayerFingerprint = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":"
             + client.getVarpValue(VarPlayerID.SLAYER_COUNT) + ":"
@@ -837,6 +849,13 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
         automaticAccountSyncDirty = true;
         automaticAccountSyncDebounceTicks = AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS;
+    }
+
+    private void requestFarmingAccountSync()
+    {
+        lastAutomaticAccountSyncAt = 0L;
+        automaticAccountSyncDirty = true;
+        automaticAccountSyncDebounceTicks = 5;
     }
 
     private void handleAutomaticAccountSync(long now)
