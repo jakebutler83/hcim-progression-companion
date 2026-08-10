@@ -65,6 +65,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JTextField linkCodeField = new JTextField();
     private final JButton connectButton = new JButton("Connect");
     private final JButton accountSyncButton = new JButton("Sync Account Now");
+    private boolean accountSyncCooldown;
 
     public HcimProgressionCompanionPanel(Consumer<String> linkHandler, Runnable accountSyncHandler)
     {
@@ -367,7 +368,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
     public void setAccountSyncing(boolean syncing)
     {
-        accountSyncButton.setEnabled(!syncing);
+        accountSyncButton.setEnabled(!syncing && !accountSyncCooldown);
         accountSyncButton.setText(syncing ? "Syncing…" : "Sync Account Now");
         if (syncing)
         {
@@ -378,6 +379,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
     public void showAccountSyncSuccess(int quests, int tasks, int bossKillCounts)
     {
+        setAccountSyncCooldown(false);
         setAccountSyncing(false);
         accountSyncStatusValue.setText("Synced \u2022 " + bossKillCounts + " boss KCs");
         accountSyncStatusValue.setForeground(SUCCESS);
@@ -407,6 +409,36 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountSyncStatusValue.setForeground(ERROR);
         accountSyncErrorValue.setText(resolved);
         accountSyncErrorValue.setForeground(ERROR);
+    }
+
+    public void showAccountSyncCooldown(long retryAfterSeconds)
+    {
+        accountSyncCooldown = true;
+        accountSyncButton.setEnabled(false);
+        accountSyncButton.setText("Sync cooldown");
+        String duration = formatCooldown(retryAfterSeconds);
+        accountSyncStatusValue.setText("Rate limited • retry in " + duration);
+        accountSyncStatusValue.setForeground(WARNING);
+        accountSyncErrorValue.setText("HTTP 429 • retry in " + duration);
+        accountSyncErrorValue.setForeground(ERROR);
+    }
+
+    public void setAccountSyncCooldown(boolean cooldown)
+    {
+        accountSyncCooldown = cooldown;
+        if (!cooldown)
+        {
+            accountSyncButton.setEnabled(true);
+            accountSyncButton.setText("Sync Account Now");
+        }
+    }
+
+    private static String formatCooldown(long seconds)
+    {
+        long safe = Math.max(0L, seconds);
+        long minutes = safe / 60L;
+        long remainder = safe % 60L;
+        return minutes > 0 ? minutes + "m " + remainder + "s" : remainder + "s";
     }
 
     public void showTcgStatus(TcgCollectionSnapshot snapshot, boolean enabled)

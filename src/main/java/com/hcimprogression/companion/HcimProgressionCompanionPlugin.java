@@ -4,6 +4,8 @@ import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -71,6 +73,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS = 15 * 60_000L;
     private static final int AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS = 30;
+    private static final Pattern RETRY_AFTER_PATTERN = Pattern.compile("Retry after (\\d+) seconds", Pattern.CASE_INSENSITIVE);
 
     @Inject private Client client;
     @Inject private ClientThread clientThread;
@@ -131,6 +134,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private int automaticAccountSyncDebounceTicks;
     private volatile long lastAutomaticAccountSyncAt;
     private volatile boolean accountSyncInFlight;
+    private volatile long accountSyncRateLimitedUntil;
     private volatile GameState lastObservedGameState = GameState.UNKNOWN;
     private ScheduledExecutorService automaticAccountSyncScheduler;
 
@@ -173,6 +177,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         automaticAccountSyncDebounceTicks = 0;
         lastAutomaticAccountSyncAt = 0L;
         accountSyncInFlight = false;
+        accountSyncRateLimitedUntil = 0L;
         lastObservedGameState = client.getGameState();
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
@@ -302,6 +307,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
      */
     private void syncAccountNow(boolean allowCachedSnapshot)
     {
+        long now = System.currentTimeMillis();
+        if (now < accountSyncRateLimitedUntil)
+        {
+            if (panel != null)
+            {
+                long remaining = Math.max(1L, (accountSyncRateLimitedUntil - now + 999L) / 1000L);
+                SwingUtilities.invokeLater(() -> panel.showAccountSyncCooldown(remaining));
+            }
+            return;
+        }
+
         String token = deviceToken();
         if (token.isEmpty())
         {
@@ -410,7 +426,16 @@ public class HcimProgressionCompanionPlugin extends Plugin
                                 if (panel == null) return;
                                 if (error != null || result == null)
                                 {
-                                    panel.showAccountSyncError(error == null ? "Account sync failed" : error);
+                                    long retryAfter = parseRetryAfter(error);
+                                    if (retryAfter > 0)
+                                    {
+                                        accountSyncRateLimitedUntil = System.currentTimeMillis() + retryAfter * 1000L;
+                                        panel.showAccountSyncCooldown(retryAfter);
+                                    }
+                                    else
+                                    {
+                                        panel.showAccountSyncError(error == null ? "Account sync failed" : error);
+                                    }
                                     return;
                                 }
                                 panel.showAccountSyncSuccess(
@@ -431,8 +456,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
                     if (panel != null)
                     {
                         String message = error.getMessage();
-                        panel.showAccountSyncError(message == null || message.isEmpty()
-                            ? "Could not read account data" : message);
+                        long retryAfter = parseRetryAfter(message);
+                        if (retryAfter > 0)
+                        {
+                            accountSyncRateLimitedUntil = System.currentTimeMillis() + retryAfter * 1000L;
+                            panel.showAccountSyncCooldown(retryAfter);
+                        }
+                        else
+                        {
+                            panel.showAccountSyncError(message == null || message.isEmpty()
+                                ? "Could not read account data" : message);
+                        }
                     }
                 });
             }
@@ -893,6 +927,21 @@ public class HcimProgressionCompanionPlugin extends Plugin
         syncAccountNow();
     }
 
+    private static long parseRetryAfter(String message)
+    {
+        if (message == null) return 0L;
+        Matcher matcher = RETRY_AFTER_PATTERN.matcher(message);
+        if (!matcher.find()) return 0L;
+        try
+        {
+            return Math.max(1L, Long.parseLong(matcher.group(1)));
+        }
+        catch (NumberFormatException ignored)
+        {
+            return 0L;
+        }
+    }
+
     private String progressFingerprint()
     {
         StringBuilder fingerprint = new StringBuilder(512);
@@ -906,7 +955,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
             // snapshot. Track level transitions once a skill is meaningfully
             // progressed; the 15-minute heartbeat still captures exact XP.
             int level = client.getRealSkillLevel(skill);
-            fingerprint.append(level > 40 ? level : 0).append('|');
+            // Below 40, the periodic heartbeat is sufficient. Above 40,
+            // coalesce level changes into two-level buckets to avoid a
+            // network sync on every individual level.
+            int bucket = level > 40 ? 40 + ((level - 40) / 2) : 0;
+            fingerprint.append(bucket).append('|');
         }
 
         fingerprint.append(client.getVarpValue(net.runelite.api.VarPlayer.QUEST_POINTS)).append('|')

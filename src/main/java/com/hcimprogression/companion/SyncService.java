@@ -678,11 +678,16 @@ public class SyncService {
                     log.debug("Response body: {}", responseBody);
 
                     if (!closeableResponse.isSuccessful()) {
+                        String retryAfter = closeableResponse.header("Retry-After");
+                        String retryMessage = retryAfter == null || retryAfter.isEmpty()
+                                ? ""
+                                : " Retry after " + retryAfter + " seconds.";
                         future.completeExceptionally(new RuntimeException(
                                 "HTTP "
                                         + closeableResponse.code()
                                         + ": "
                                         + errorValue(responseBody)
+                                        + retryMessage
                         ));
                         return;
                     }
