@@ -2,25 +2,19 @@ package com.hcimprogression.companion;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.ArrayList;
-import java.util.List;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 
 /**
- * Reads the farming transmit varbits used by RuneLite's farming/time-tracking
- * plugins. The raw state is retained so the web client can continue to improve
- * labels without requiring a plugin update.
+ * Reads farming state from RuneLite's supported profile configuration and
+ * farming transmit varbits. The plugin deliberately avoids accessing private
+ * Time Tracking implementation classes.
  */
 public class FarmRunTracker
 {
-    private static final Logger LOG = Logger.getLogger(FarmRunTracker.class.getName());
     private static final String CONFIG_GROUP = "hcimprogression.farmruns";
+
     private static final PatchDef[] PATCHES = {
         new PatchDef("herb-catherby", "Catherby", "Herb", VarbitID.FARMING_TRANSMIT_A, 80),
         new PatchDef("herb-falador", "Falador", "Herb", VarbitID.FARMING_TRANSMIT_B, 80),
@@ -39,13 +33,101 @@ public class FarmRunTracker
         new PatchDef("flower-hosidius", "Hosidius", "Flower", VarbitID.FARMING_TRANSMIT_O, 40),
         new PatchDef("special-farming-guild", "Farming Guild", "Special", VarbitID.FARMING_TRANSMIT_P, 80)
     };
+
+    /**
+     * RuneLite Time Tracking stores patch records as region.varbit profile
+     * keys. Keeping the public identifiers here replaces the old reflective
+     * walk through RuneLite's package-private FarmingWorld model.
+     */
+    private static final ProfilePatchDef[] PROFILE_PATCHES = {
+        new ProfilePatchDef("Ardougne", "North", "Allotment", 10548, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Ardougne", "South", "Allotment", 10548, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Ardougne", "", "Flower", 10548, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Ardougne", "", "Herb", 10548, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Ardougne", "", "Compost", 10548, VarbitID.FARMING_TRANSMIT_E),
+
+        new ProfilePatchDef("Catherby", "North", "Allotment", 11062, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Catherby", "South", "Allotment", 11062, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Catherby", "", "Flower", 11062, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Catherby", "", "Herb", 11062, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Catherby", "", "Compost", 11062, VarbitID.FARMING_TRANSMIT_E),
+        new ProfilePatchDef("Catherby", "", "Fruit tree", 11317, VarbitID.FARMING_TRANSMIT_A),
+
+        new ProfilePatchDef("Civitas illa Fortis", "North", "Allotment", 6192, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Civitas illa Fortis", "South", "Allotment", 6192, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Civitas illa Fortis", "", "Flower", 6192, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Civitas illa Fortis", "", "Herb", 6192, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Civitas illa Fortis", "", "Compost", 6192, VarbitID.FARMING_TRANSMIT_E),
+
+        new ProfilePatchDef("Falador", "North west", "Allotment", 12083, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Falador", "South east", "Allotment", 12083, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Falador", "", "Flower", 12083, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Falador", "", "Herb", 12083, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Falador", "", "Compost", 12083, VarbitID.FARMING_TRANSMIT_E),
+        new ProfilePatchDef("Falador", "", "Tree", 11828, VarbitID.FARMING_TRANSMIT_A),
+
+        new ProfilePatchDef("Kourend", "North east", "Allotment", 6967, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Kourend", "South west", "Allotment", 6967, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Kourend", "", "Flower", 6967, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Kourend", "", "Herb", 6967, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Kourend", "", "Compost", 6967, VarbitID.FARMING_TRANSMIT_E),
+        new ProfilePatchDef("Kourend", "", "Spirit tree", 6967, VarbitID.FARMING_TRANSMIT_F),
+
+        new ProfilePatchDef("Morytania", "North west", "Allotment", 14391, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Morytania", "South east", "Allotment", 14391, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Morytania", "", "Flower", 14391, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Morytania", "", "Herb", 14391, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Morytania", "", "Compost", 14391, VarbitID.FARMING_TRANSMIT_E),
+        new ProfilePatchDef("Morytania", "Mushroom", "Special", 13622, VarbitID.FARMING_TRANSMIT_A),
+
+        new ProfilePatchDef("Harmony", "", "Allotment", 15148, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Harmony", "", "Herb", 15148, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Troll Stronghold", "", "Herb", 11321, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Weiss", "", "Herb", 11325, VarbitID.FARMING_TRANSMIT_A),
+
+        new ProfilePatchDef("Farming Guild", "", "Tree", 4922, VarbitID.FARMING_TRANSMIT_G),
+        new ProfilePatchDef("Farming Guild", "", "Herb", 4922, VarbitID.FARMING_TRANSMIT_E),
+        new ProfilePatchDef("Farming Guild", "", "Bush", 4922, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Farming Guild", "", "Flower", 4922, VarbitID.FARMING_TRANSMIT_H),
+        new ProfilePatchDef("Farming Guild", "North", "Allotment", 4922, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Farming Guild", "South", "Allotment", 4922, VarbitID.FARMING_TRANSMIT_D),
+        new ProfilePatchDef("Farming Guild", "", "Compost", 4922, VarbitID.FARMING_TRANSMIT_N),
+        new ProfilePatchDef("Farming Guild", "", "Cactus", 4922, VarbitID.FARMING_TRANSMIT_F),
+        new ProfilePatchDef("Farming Guild", "", "Spirit tree", 4922, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Farming Guild", "", "Fruit tree", 4922, VarbitID.FARMING_TRANSMIT_K),
+        new ProfilePatchDef("Farming Guild", "Anima", "Special", 4922, VarbitID.FARMING_TRANSMIT_M),
+        new ProfilePatchDef("Farming Guild", "Celastrus", "Special", 4922, VarbitID.FARMING_TRANSMIT_L),
+        new ProfilePatchDef("Farming Guild", "Redwood", "Special", 4922, VarbitID.FARMING_TRANSMIT_I),
+        new ProfilePatchDef("Farming Guild", "Hespori", "Special", 5021, VarbitID.FARMING_TRANSMIT_J),
+
+        new ProfilePatchDef("Fossil Island", "East", "Hardwood tree", 14651, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Fossil Island", "Middle", "Hardwood tree", 14651, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Fossil Island", "West", "Hardwood tree", 14651, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Seaweed", "North", "Seaweed", 15008, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Seaweed", "South", "Seaweed", 15008, VarbitID.FARMING_TRANSMIT_B),
+
+        new ProfilePatchDef("Lumbridge", "", "Tree", 12594, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Varrock", "", "Tree", 12854, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Taverley", "", "Tree", 11573, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Gnome Stronghold", "", "Tree", 9781, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Gnome Stronghold", "", "Fruit tree", 9781, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Tree Gnome Village", "", "Fruit tree", 9777, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Lletya", "", "Fruit tree", 9265, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Brimhaven", "", "Fruit tree", 11058, VarbitID.FARMING_TRANSMIT_A),
+
+        new ProfilePatchDef("Prifddinas", "North", "Allotment", 13151, VarbitID.FARMING_TRANSMIT_A),
+        new ProfilePatchDef("Prifddinas", "South", "Allotment", 13151, VarbitID.FARMING_TRANSMIT_B),
+        new ProfilePatchDef("Prifddinas", "", "Flower", 13151, VarbitID.FARMING_TRANSMIT_C),
+        new ProfilePatchDef("Prifddinas", "Crystal tree", "Special", 13151, VarbitID.FARMING_TRANSMIT_E),
+        new ProfilePatchDef("Prifddinas", "", "Compost", 13151, VarbitID.FARMING_TRANSMIT_D)
+    };
+
     private final ConfigManager configManager;
     private final Map<Integer, State> states = new LinkedHashMap<>();
-    private final Object farmingWorld;
+
     public FarmRunTracker(ConfigManager configManager)
     {
         this.configManager = configManager;
-        this.farmingWorld = createFarmingWorld();
     }
 
     public boolean update(Client client)
@@ -80,147 +162,88 @@ public class FarmRunTracker
     public FarmRunSnapshot snapshot()
     {
         FarmRunSnapshot tracked = timeTrackingSnapshot();
-        FarmRunSnapshot known = knownCatherbySnapshot();
-        if (!known.getPatches().isEmpty())
-        {
-            for (FarmRunSnapshot.Patch patch : known.getPatches())
-            {
-                boolean present = tracked.getPatches().stream().anyMatch(existing -> existing.getId().equals(patch.getId()));
-                if (!present) tracked.getPatches().add(patch);
-            }
-        }
         if (!tracked.getPatches().isEmpty())
         {
             return tracked;
         }
+
         FarmRunSnapshot result = new FarmRunSnapshot();
         long now = System.currentTimeMillis() / 1000L;
         for (PatchDef patch : PATCHES)
         {
             State state = states.get(patch.varbit);
-            if (state == null) continue;
+            if (state == null)
+            {
+                continue;
+            }
             long readyAt = state.value > 0 ? state.changedAt + patch.durationMinutes * 60L : 0;
             String status = state.value <= 0 ? "empty" : readyAt <= now ? "ready" : "growing";
-            result.getPatches().add(new FarmRunSnapshot.Patch(patch.id, patch.location, patch.type, status, state.value, state.changedAt, readyAt));
+            result.getPatches().add(new FarmRunSnapshot.Patch(
+                patch.id,
+                patch.location,
+                patch.type,
+                status,
+                state.value,
+                state.changedAt,
+                readyAt));
         }
         return result;
     }
 
-    private FarmRunSnapshot knownCatherbySnapshot()
-    {
-        FarmRunSnapshot result = new FarmRunSnapshot();
-        long now = System.currentTimeMillis() / 1000L;
-        String[] names = {"Allotment north", "Allotment south", "Flower", "Herb", "Compost"};
-        String[] types = {"Allotment", "Allotment", "Flower", "Herb", "Compost"};
-        int[] varbits = {4771, 4772, 4773, 4774, 4775};
-        for (int i = 0; i < varbits.length; i++)
-        {
-            String stored = configManager.getRSProfileConfiguration("timetracking", "11062." + varbits[i]);
-            if (stored == null) continue;
-            String[] parts = stored.split(":");
-            if (parts.length != 2) continue;
-            try
-            {
-                int raw = Integer.parseInt(parts[0]);
-                long changedAt = Long.parseLong(parts[1]);
-                boolean waiting = isWaitingForPlanting(types[i], raw);
-                boolean harvestable = isHarvestable(types[i], raw);
-                long readyAt = waiting || harvestable ? 0 : changedAt + durationMinutes(types[i]) * 60L;
-                String state = waiting ? "waiting" : harvestable || readyAt <= now ? "ready" : "growing";
-                result.getPatches().add(new FarmRunSnapshot.Patch("farm-catherby-" + varbits[i], "Catherby · " + names[i], types[i], state, raw, changedAt, readyAt));
-            }
-            catch (NumberFormatException ignored) { }
-        }
-        return result;
-    }
     private FarmRunSnapshot timeTrackingSnapshot()
     {
         FarmRunSnapshot result = new FarmRunSnapshot();
-        if (farmingWorld == null)
+        long now = System.currentTimeMillis() / 1000L;
+        for (ProfilePatchDef patch : PROFILE_PATCHES)
         {
-            return result;
-        }
-        try
-        {
-            Method getTabs = accessible(farmingWorld.getClass(), "getTabs");
-            Object tabsValue = getTabs.invoke(farmingWorld);
-            if (!(tabsValue instanceof Map)) return result;
-            long now = System.currentTimeMillis() / 1000L;
-            for (Object entryObject : ((Map<?, ?>) tabsValue).entrySet())
+            String key = patch.regionId + "." + patch.varbit;
+            String stored = configManager.getRSProfileConfiguration("timetracking", key);
+            if (stored == null)
             {
-                Map.Entry<?, ?> entry = (Map.Entry<?, ?>) entryObject;
-                String type = titleCase(String.valueOf(entry.getKey()));
-                Object patches = entry.getValue();
-                if (!(patches instanceof Iterable)) continue;
-                for (Object patch : (Iterable<?>) patches)
-                {
-                    Method getRegion = accessible(patch.getClass(), "getRegion");
-                    Method getName = accessible(patch.getClass(), "getName");
-                    Method getVarbit = accessible(patch.getClass(), "getVarbit");
-                    Object region = getRegion.invoke(patch);
-                    if (region == null) continue;
-                    Method getRegionName = accessible(region.getClass(), "getName");
-                    Method getRegionId = accessible(region.getClass(), "getRegionID");
-                    String location = String.valueOf(getRegionName.invoke(region));
-                    int regionId = ((Number) getRegionId.invoke(region)).intValue();
-                    int varbit = ((Number) getVarbit.invoke(patch)).intValue();
-                    String stored = configManager.getRSProfileConfiguration("timetracking", regionId + "." + varbit);
-                    if (stored == null) continue;
-                    String[] parts = stored.split(":");
-                    if (parts.length != 2) continue;
-                    int rawState;
-                    long changedAt;
-                    try
-                    {
-                        rawState = Integer.parseInt(parts[0]);
-                        changedAt = Long.parseLong(parts[1]);
-                    }
-                    catch (NumberFormatException ignored)
-                    {
-                        continue;
-                    }
-                    String cropState = cropState(patch, rawState);
-                    boolean waiting = isWaitingForPlanting(type, rawState);
-                    boolean harvestable = "HARVESTABLE".equals(cropState);
-                    long readyAt = waiting || harvestable ? 0 : changedAt + durationMinutes(type) * 60L;
-                    String state = waiting ? "waiting" : harvestable || readyAt <= now ? "ready" : "growing";
-                    String name = String.valueOf(getName.invoke(patch));
-                    String id = "farm-" + slug(location) + "-" + varbit;
-                    result.getPatches().add(new FarmRunSnapshot.Patch(id, location + " · " + name, type, state, rawState, changedAt, readyAt));
-                }
+                continue;
+            }
+
+            String[] parts = stored.split(":");
+            if (parts.length != 2)
+            {
+                continue;
+            }
+
+            try
+            {
+                int rawState = Integer.parseInt(parts[0]);
+                long changedAt = Long.parseLong(parts[1]);
+                boolean waiting = isWaitingForPlanting(patch.type, rawState);
+                boolean harvestable = isHarvestable(patch.type, rawState);
+                long readyAt = waiting || harvestable
+                    ? 0
+                    : changedAt + durationMinutes(patch.type) * 60L;
+                String state = waiting
+                    ? "waiting"
+                    : harvestable || readyAt <= now ? "ready" : "growing";
+                String suffix = patch.name.isEmpty() ? "" : " - " + patch.name;
+                String id = "farm-" + slug(patch.location) + "-" + patch.regionId + "-" + patch.varbit;
+                result.getPatches().add(new FarmRunSnapshot.Patch(
+                    id,
+                    patch.location + suffix,
+                    patch.type,
+                    state,
+                    rawState,
+                    changedAt,
+                    readyAt));
+            }
+            catch (NumberFormatException ignored)
+            {
+                // Time Tracking is optional; ignore malformed profile records.
             }
         }
-        catch (ReflectiveOperationException | RuntimeException error)
-        {
-            // Time Tracking is optional. The raw transmit fallback remains available.
-            LOG.log(Level.FINE, "Unable to read RuneLite Time Tracking farming records", error);
-        }
         return result;
-    }
-
-    private static String cropState(Object patch, int rawState)
-    {
-        try
-        {
-            Method getImplementation = accessible(patch.getClass(), "getImplementation");
-            Object implementation = getImplementation.invoke(patch);
-            Method forVarbitValue = accessible(implementation.getClass(), "forVarbitValue", int.class);
-            Object state = forVarbitValue.invoke(implementation, rawState);
-            if (state == null) return "";
-            Method getCropState = accessible(state.getClass(), "getCropState");
-            Object crop = getCropState.invoke(state);
-            return crop == null ? "" : String.valueOf(crop);
-        }
-        catch (ReflectiveOperationException | RuntimeException ignored)
-        {
-            return "";
-        }
     }
 
     private static boolean isHarvestable(String type, int rawState)
     {
-        // Time Tracking's herb implementation uses three harvestable values
-        // after every four growing values (8–10, 15–17, 22–24, ...).
+        // RuneLite's herb states use three harvestable values after every four
+        // growing values (8-10, 15-17, 22-24, ...).
         if ("Herb".equalsIgnoreCase(type) && rawState >= 8)
         {
             return (rawState - 8) % 7 <= 2;
@@ -230,49 +253,110 @@ public class FarmRunTracker
 
     private static boolean isWaitingForPlanting(String type, int rawState)
     {
-        // After the last herb is picked, RuneLite reports the weeds stages
-        // (0–3). The patch is no longer growing; it is waiting for planting.
-        return "Herb".equalsIgnoreCase(type) && rawState >= 0 && rawState <= 3;
-    }
-    private static Object createFarmingWorld()
-    {
-        try
+        // Herb weed stages are 0-3. Other supported patch types use zero for
+        // an empty patch in their Time Tracking profile record.
+        if ("Herb".equalsIgnoreCase(type))
         {
-            Class<?> type = Class.forName("net.runelite.client.plugins.timetracking.farming.FarmingWorld");
-            Constructor<?> constructor = type.getDeclaredConstructor();
-            constructor.setAccessible(true);
-            return constructor.newInstance();
+            return rawState >= 0 && rawState <= 3;
         }
-        catch (ReflectiveOperationException | RuntimeException ignored)
-        {
-            return null;
-        }
+        return rawState == 0;
     }
-    private static Method accessible(Class<?> type, String name, Class<?>... parameterTypes) throws NoSuchMethodException
-    {
-        Method method = type.getDeclaredMethod(name, parameterTypes);
-        method.setAccessible(true);
-        return method;
-    }
+
     private static int durationMinutes(String type)
     {
         String normalized = type.toLowerCase();
-        if (normalized.contains("fruit")) return 960;
-        if (normalized.contains("tree")) return 200;
-        if (normalized.contains("allotment") || normalized.contains("flower")) return 40;
+        if (normalized.contains("fruit"))
+        {
+            return 960;
+        }
+        if (normalized.contains("tree"))
+        {
+            return 200;
+        }
+        if (normalized.contains("allotment") || normalized.contains("flower"))
+        {
+            return 40;
+        }
         return 80;
     }
-    private static String titleCase(String value)
-    {
-        String lower = value.toLowerCase().replace('_', ' ');
-        return lower.isEmpty() ? "Other" : Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
-    }
+
     private static String slug(String value)
     {
         return value.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
     }
-    private long readTimestamp(int varbit, int value) { String stored = configManager.getRSProfileConfiguration(CONFIG_GROUP, "patch." + varbit); if (stored == null) return 0; String[] parts=stored.split(":"); if(parts.length!=2)return 0; try{return Integer.parseInt(parts[0])==value?Long.parseLong(parts[1]):0;}catch(NumberFormatException ignored){return 0;} }
-    private void writeTimestamp(int varbit,int value,long timestamp){configManager.setRSProfileConfiguration(CONFIG_GROUP,"patch."+varbit,value+":"+timestamp);}
-    private static class PatchDef { final String id,location,type; final int varbit,durationMinutes; PatchDef(String id,String location,String type,int varbit,int durationMinutes){this.id=id;this.location=location;this.type=type;this.varbit=varbit;this.durationMinutes=durationMinutes;} }
-    private static class State { final int value; final long changedAt; State(int value,long changedAt){this.value=value;this.changedAt=changedAt;} }
+
+    private long readTimestamp(int varbit, int value)
+    {
+        String stored = configManager.getRSProfileConfiguration(CONFIG_GROUP, "patch." + varbit);
+        if (stored == null)
+        {
+            return 0;
+        }
+        String[] parts = stored.split(":");
+        if (parts.length != 2)
+        {
+            return 0;
+        }
+        try
+        {
+            return Integer.parseInt(parts[0]) == value ? Long.parseLong(parts[1]) : 0;
+        }
+        catch (NumberFormatException ignored)
+        {
+            return 0;
+        }
+    }
+
+    private void writeTimestamp(int varbit, int value, long timestamp)
+    {
+        configManager.setRSProfileConfiguration(CONFIG_GROUP, "patch." + varbit, value + ":" + timestamp);
+    }
+
+    private static class PatchDef
+    {
+        private final String id;
+        private final String location;
+        private final String type;
+        private final int varbit;
+        private final int durationMinutes;
+
+        private PatchDef(String id, String location, String type, int varbit, int durationMinutes)
+        {
+            this.id = id;
+            this.location = location;
+            this.type = type;
+            this.varbit = varbit;
+            this.durationMinutes = durationMinutes;
+        }
+    }
+
+    private static class ProfilePatchDef
+    {
+        private final String location;
+        private final String name;
+        private final String type;
+        private final int regionId;
+        private final int varbit;
+
+        private ProfilePatchDef(String location, String name, String type, int regionId, int varbit)
+        {
+            this.location = location;
+            this.name = name;
+            this.type = type;
+            this.regionId = regionId;
+            this.varbit = varbit;
+        }
+    }
+
+    private static class State
+    {
+        private final int value;
+        private final long changedAt;
+
+        private State(int value, long changedAt)
+        {
+            this.value = value;
+            this.changedAt = changedAt;
+        }
+    }
 }

@@ -65,7 +65,6 @@ public class AccountSnapshotService
         if (farmRunTracker != null)
         {
             snapshot.setFarmRuns(farmRunTracker.snapshot());
-            System.out.println("[HCIM] farm snapshot patches=" + snapshot.getFarmRuns().getPatches().size());
         }
         snapshot.setSlayer(readSlayer(client));
         captureWornEquipment(client, itemManager, snapshot);
