@@ -622,15 +622,29 @@ public class HcimProgressionCompanionPlugin extends Plugin
         // for the next login, and avoids trying to read cleared client widgets.
         if (previousState == GameState.LOGGED_IN
             && nextState != GameState.LOGGED_IN
-            && config.automaticAccountSyncEnabled()
-            && !deviceToken().isEmpty()
-            && latestAccountSnapshot != null)
+            && !deviceToken().isEmpty())
         {
-            automaticAccountSyncDirty = false;
-            automaticAccountSyncDebounceTicks = 0;
-            lastAutomaticAccountSyncAt = System.currentTimeMillis();
-            syncAccountNow(true);
+            // Clear the old character's live card before the next account can
+            // publish through the same Firebase user/profile.
+            clearLivePresenceForLogout();
+            if (config.automaticAccountSyncEnabled() && latestAccountSnapshot != null)
+            {
+                automaticAccountSyncDirty = false;
+                automaticAccountSyncDebounceTicks = 0;
+                lastAutomaticAccountSyncAt = System.currentTimeMillis();
+                syncAccountNow(true);
+            }
         }
+    }
+
+    private void clearLivePresenceForLogout()
+    {
+        String token = deviceToken();
+        if (token.isEmpty()) return;
+        String playerName = latestAccountSnapshot == null ? "" : latestAccountSnapshot.getPlayerName();
+        syncService.clearLivePresence(config.apiBaseUrl(), token, playerName, error -> {
+            if (error != null) logger.debug("Could not clear live presence on logout: {}", error);
+        });
     }
 
     @Subscribe

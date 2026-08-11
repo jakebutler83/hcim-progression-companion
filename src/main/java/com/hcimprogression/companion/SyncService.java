@@ -226,6 +226,23 @@ public class SyncService {
                 });
     }
 
+    /** Clear the previous character's live card when RuneLite logs out or
+     * switches accounts. Without this, the old account could remain showing
+     * its last world and activity while the other character was playing. */
+    public void clearLivePresence(String apiBaseUrl, String token, String playerName, Consumer<String> callback) {
+        String safeName = playerName == null ? "" : playerName.replace("\\", "\\\\").replace("\"", "\\\"");
+        post(apiBaseUrl, "companion-social-presence-offline", token, "{\"playerName\":\"" + safeName + "\"}")
+                .whenComplete((body, error) -> {
+                    if (error != null) {
+                        callback.accept(friendly(error));
+                    } else if (!body.contains("\"ok\":true")) {
+                        callback.accept(errorValue(body));
+                    } else {
+                        callback.accept(null);
+                    }
+                });
+    }
+
 
 
     public void syncSocialClan(
