@@ -20,6 +20,7 @@ public class AccountSnapshot
     private long lootValueTotal;
     private long lootDropCountTotal;
     private long lootTrackedSince;
+    private final List<LootDropSnapshot> lootDrops = new ArrayList<>();
     private long lastTearsVisitAt;
     private BirdhouseSnapshot birdhouses;
     private FarmRunSnapshot farmRuns;
@@ -47,6 +48,7 @@ public class AccountSnapshot
     public void setLootDropCountTotal(long lootDropCountTotal) { this.lootDropCountTotal = lootDropCountTotal; }
     public long getLootTrackedSince() { return lootTrackedSince; }
     public void setLootTrackedSince(long lootTrackedSince) { this.lootTrackedSince = lootTrackedSince; }
+    public List<LootDropSnapshot> getLootDrops() { return lootDrops; }
     public long getLastTearsVisitAt() { return lastTearsVisitAt; }
     public void setLastTearsVisitAt(long lastTearsVisitAt) { this.lastTearsVisitAt = lastTearsVisitAt; }
     public BirdhouseSnapshot getBirdhouses() { return birdhouses; }

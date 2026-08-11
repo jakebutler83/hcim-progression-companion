@@ -1,5 +1,6 @@
 package com.hcimprogression.companion;
 
+import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.util.Locale;
@@ -82,6 +83,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Inject private ClientToolbar clientToolbar;
     @Inject private ItemManager itemManager;
     @Inject private HiscoreClient hiscoreClient;
+    @Inject private Gson gson;
 
     private final LocationService locationService = new LocationService();
     private final SocialPresenceService socialPresenceService = new SocialPresenceService();
@@ -374,6 +376,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 weeklyLootTrackerService.applyTo(
                     snapshot,
                     configManager,
+                    gson,
                     config.weeklyLootTrackingEnabled()
                 );
 
@@ -694,7 +697,19 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             return;
         }
-        weeklyLootTrackerService.recordNpcLoot(event.getItems(), itemManager, configManager);
+        SlayerSnapshot slayer = latestAccountSnapshot == null ? null : latestAccountSnapshot.getSlayer();
+        String slayerTask = slayer == null ? "" : slayer.getCurrentTask();
+        String source = event.getNpc() == null ? "NPC loot" : event.getNpc().getName();
+        int npcId = event.getNpc() == null ? 0 : event.getNpc().getId();
+        weeklyLootTrackerService.recordNpcLoot(
+            source,
+            npcId,
+            slayerTask,
+            event.getItems(),
+            itemManager,
+            configManager,
+            gson
+        );
         if (config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
         {
             requestAutomaticAccountSync();

@@ -436,6 +436,33 @@ public class SyncService {
         }
         collectionLogItems.append(']');
 
+        StringBuilder lootDrops = new StringBuilder("[");
+        for (int i = 0; i < snapshot.getLootDrops().size(); i++) {
+            LootDropSnapshot drop = snapshot.getLootDrops().get(i);
+            if (i > 0) lootDrops.append(',');
+            lootDrops.append('{')
+                .append("\"dropId\":\"").append(escape(drop.getDropId())).append("\",")
+                .append("\"occurredAt\":").append(drop.getOccurredAt()).append(',')
+                .append("\"source\":\"").append(escape(drop.getSource())).append("\",")
+                .append("\"npcId\":").append(drop.getNpcId()).append(',')
+                .append("\"slayerTask\":\"").append(escape(drop.getSlayerTask())).append("\",")
+                .append("\"totalValue\":").append(drop.getTotalValue()).append(',')
+                .append("\"items\":[");
+            for (int itemIndex = 0; itemIndex < drop.getItems().size(); itemIndex++) {
+                LootDropSnapshot.LootItemSnapshot item = drop.getItems().get(itemIndex);
+                if (itemIndex > 0) lootDrops.append(',');
+                lootDrops.append('{')
+                    .append("\"itemId\":").append(item.getItemId()).append(',')
+                    .append("\"name\":\"").append(escape(item.getName())).append("\",")
+                    .append("\"quantity\":").append(item.getQuantity()).append(',')
+                    .append("\"unitPrice\":").append(item.getUnitPrice()).append(',')
+                    .append("\"totalValue\":").append(item.getTotalValue())
+                    .append('}');
+            }
+            lootDrops.append("]}");
+        }
+        lootDrops.append(']');
+
         String json = "{"
                 + "\"playerName\":\""
                 + escape(snapshot.getPlayerName())
@@ -454,6 +481,8 @@ public class SyncService {
                 + ","
                 + "\"lootTrackedSince\":"
                 + snapshot.getLootTrackedSince()
+                + ",\"lootDrops\":"
+                + lootDrops
                 + ","
                 + "\"lastTearsVisitAt\":"
                 + snapshot.getLastTearsVisitAt()
