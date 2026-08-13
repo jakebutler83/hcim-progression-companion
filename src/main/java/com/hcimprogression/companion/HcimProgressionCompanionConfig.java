@@ -109,7 +109,7 @@ public interface HcimProgressionCompanionConfig extends Config
     @ConfigItem(
         keyName = "tcgCollectionSyncEnabled",
         name = "Sync OSRS TCG collection",
-        description = "Reads your local OSRS TCG save and shares card names, quantities, and collection progress with your private Progression Path group.",
+        description = "Requests your distinct owned card names from OSRS TCG through RuneLite's read-only PluginMessage API and shares that collection progress with your private Progression Path group.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 7
     )

@@ -33,7 +33,9 @@ import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.PluginMessage;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.game.ItemManager;
@@ -84,6 +86,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Inject private ItemManager itemManager;
     @Inject private HiscoreClient hiscoreClient;
     @Inject private Gson gson;
+    @Inject private EventBus eventBus;
 
     private final LocationService locationService = new LocationService();
     private final SocialPresenceService socialPresenceService = new SocialPresenceService();
@@ -94,7 +97,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final GroupStorageSnapshotService groupStorageSnapshotService = new GroupStorageSnapshotService();
     private final PersonalBankSnapshotService personalBankSnapshotService = new PersonalBankSnapshotService();
     private final WeeklyLootTrackerService weeklyLootTrackerService = new WeeklyLootTrackerService();
-    private final TcgCollectionSnapshotService tcgCollectionSnapshotService = new TcgCollectionSnapshotService();
+    private TcgCollectionSnapshotService tcgCollectionSnapshotService;
     private BirdhouseTracker birdhouseTracker;
     private FarmRunTracker farmRunTracker;
     @Inject private SyncService syncService;
@@ -184,6 +187,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
+        tcgCollectionSnapshotService = new TcgCollectionSnapshotService(eventBus);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/hcim-companion-icon.png");
         navigationButton = NavigationButton.builder()
@@ -200,6 +204,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (config.personalBankSyncEnabled()) panel.showPersonalBankWaiting();
         else panel.showPersonalBankDisabled();
         panel.showTcgStatus(null, config.tcgCollectionSyncEnabled());
+        if (config.tcgCollectionSyncEnabled())
+        {
+            tcgCollectionSnapshotService.requestSnapshot();
+        }
 
         // Keep the periodic snapshot independent of the game-tick debounce
         // loop. RuneLite can pause or delay ticks while loading worlds, opening
@@ -383,9 +391,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 // Clue completion totals are not reliably present in Collection Log widgets.
                 // RuneLite itself uses the official hiscores for !clues, so use the same source.
                 CompletableFuture<HiscoreResult> hiscoreFuture = hiscoreClient.lookupAsync(snapshot.getPlayerName(), HiscoreEndpoint.NORMAL);
-                CompletableFuture<TcgCollectionSnapshot> tcgFuture = config.tcgCollectionSyncEnabled()
-                    ? CompletableFuture.supplyAsync(() -> tcgCollectionSnapshotService.read(configManager.getRSProfileKey()))
-                    : CompletableFuture.completedFuture(null);
+                TcgCollectionSnapshot currentTcgSnapshot = null;
+                if (config.tcgCollectionSyncEnabled())
+                {
+                    tcgCollectionSnapshotService.requestSnapshot();
+                    currentTcgSnapshot = tcgCollectionSnapshotService.getLatestSnapshot();
+                }
+                CompletableFuture<TcgCollectionSnapshot> tcgFuture =
+                    CompletableFuture.completedFuture(currentTcgSnapshot);
                 CompletableFuture.allOf(hiscoreFuture, tcgFuture).whenComplete((ignored, combinedError) ->
                     {
                         HiscoreResult hiscoreResult = null;
@@ -594,6 +607,24 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             snapshot.getBossKillCounts().put(bossId, total);
         }
+    }
+
+    @Subscribe
+    public void onPluginMessage(PluginMessage event)
+    {
+        if (tcgCollectionSnapshotService == null || !tcgCollectionSnapshotService.handle(event))
+        {
+            return;
+        }
+
+        TcgCollectionSnapshot snapshot = tcgCollectionSnapshotService.getLatestSnapshot();
+        SwingUtilities.invokeLater(() ->
+        {
+            if (panel != null)
+            {
+                panel.showTcgStatus(snapshot, config.tcgCollectionSyncEnabled());
+            }
+        });
     }
 
     @Subscribe

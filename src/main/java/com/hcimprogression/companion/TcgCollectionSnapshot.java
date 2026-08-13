@@ -3,7 +3,7 @@ package com.hcimprogression.companion;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Share-safe summary of the OSRS TCG collection stored by the separate TCG plugin. */
+/** Share-safe summary received through the OSRS TCG PluginMessage API. */
 public class TcgCollectionSnapshot
 {
     private boolean available;
