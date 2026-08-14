@@ -38,6 +38,10 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
 
+### Pre-release beta testers
+
+Until the Plugin Hub submission is approved, testers can run the public source through RuneLite's development client. See [BETA_TESTING.md](BETA_TESTING.md) and double-click `Launch-Beta-Client.cmd` after completing the Jagex Account development setup. Never share `.runelite/credentials.properties`, passwords, device tokens, or one-time link codes.
+
 Live location and Social Hub presence share one request, refresh every five minutes, and update earlier after meaningful world, region, activity, equipment, or sharing changes. Randomized timing prevents large groups of clients from syncing together, and network failures use exponential retry backoff. Automatic account snapshots are opt-in, coalesce skill/quest/diary/collection-log changes, and keep the manual Account Sync button available for an immediate refresh. Hiscore-backed boss KC and clue totals still follow the official hiscore update timing.
 
 ## Privacy
