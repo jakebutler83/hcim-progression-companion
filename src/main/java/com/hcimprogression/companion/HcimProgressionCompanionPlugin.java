@@ -32,6 +32,7 @@ import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.StatChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
@@ -759,6 +760,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             requestAutomaticAccountSync();
         }
+    }
+
+    @Subscribe
+    public void onStatChanged(StatChanged event)
+    {
+        socialPresenceService.updateSkillActivity(event.getSkill(), event.getXp(), System.currentTimeMillis());
     }
 
     @Subscribe

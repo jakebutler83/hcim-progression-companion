@@ -8,6 +8,7 @@ import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.PlayerComposition;
 import net.runelite.api.Varbits;
@@ -17,7 +18,11 @@ import net.runelite.client.game.ItemManager;
 
 public class SocialPresenceService
 {
+    private static final long RECENT_SKILL_ACTIVITY_MILLIS = 45_000L;
     private volatile Item[] latestWornItems;
+    private final Map<net.runelite.api.Skill, Integer> lastSkillXp = new LinkedHashMap<>();
+    private volatile String recentSkillActivity;
+    private volatile long recentSkillActivityAt;
     private static final Map<String, EquipmentInventorySlot> SHARED_SLOTS = new LinkedHashMap<>();
     private static final Map<String, KitType> COMPOSITION_FALLBACK_SLOTS = new LinkedHashMap<>();
 
@@ -59,7 +64,7 @@ public class SocialPresenceService
             return null;
         }
 
-        WorldPoint point = player.getWorldLocation();
+        WorldPoint point = WorldLocationResolver.resolve(client, player);
         if (point == null)
         {
             return null;
@@ -85,6 +90,20 @@ public class SocialPresenceService
 
         captureEquipment(client, itemManager, snapshot);
         return snapshot;
+    }
+
+    public void updateSkillActivity(net.runelite.api.Skill skill, int xp, long now)
+    {
+        if (skill == null || skill == net.runelite.api.Skill.OVERALL)
+        {
+            return;
+        }
+        Integer previous = lastSkillXp.put(skill, xp);
+        if (previous != null && xp > previous)
+        {
+            recentSkillActivity = "Training " + titleCase(skill.getName());
+            recentSkillActivityAt = now;
+        }
     }
 
     private void captureEquipment(Client client, ItemManager itemManager, SocialPresenceSnapshot snapshot)
@@ -180,7 +199,18 @@ public class SocialPresenceService
         Actor interacting = player.getInteracting();
         if (interacting != null && interacting.getName() != null && !interacting.getName().trim().isEmpty())
         {
-            return "Fighting " + interacting.getName().trim();
+            String name = interacting.getName().trim();
+            if (!(interacting instanceof NPC) || ((NPC) interacting).getCombatLevel() > 0)
+            {
+                return "Fighting " + name;
+            }
+            return "Interacting with " + name;
+        }
+
+        String skillActivity = recentSkillActivity;
+        if (skillActivity != null && System.currentTimeMillis() - recentSkillActivityAt <= RECENT_SKILL_ACTIVITY_MILLIS)
+        {
+            return skillActivity;
         }
 
         if (player.getAnimation() != -1)
@@ -189,6 +219,12 @@ public class SocialPresenceService
         }
 
         return "Exploring " + regionName;
+    }
+
+    private String titleCase(String value)
+    {
+        if (value == null || value.isEmpty()) return "a skill";
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1).toLowerCase();
     }
 
     @SuppressWarnings("deprecation")
@@ -209,6 +245,11 @@ public class SocialPresenceService
         int x = point.getX();
         int y = point.getY();
 
+        if (x >= 2268 && x <= 2596 && y >= 4892 && y <= 5220) return "TzHaar Area";
+        if (x >= 2716 && x <= 3044 && y >= 5084 && y <= 5412) return "God Wars Dungeon";
+        if (x >= 2524 && x <= 3044 && y >= 9500 && y <= 10084) return "Taverley Underground";
+        if (x >= 1244 && x <= 1956 && y >= 9692 && y <= 10212) return "Kourend Underground";
+        if (x >= 3484 && x <= 4004 && y >= 10012 && y <= 10340) return "Fossil Island Underground";
         if (x >= 2480 && x <= 2700 && ((y >= 2100 && y <= 2400) || (y >= 8450 && y <= 8750))) return "Wyrmscraig";
         if (y >= 3520 && x >= 2940 && x <= 3395) return "Wilderness";
         if (x >= 1150 && x <= 2050 && y >= 3350 && y <= 4250) return "Kourend & Kebos";

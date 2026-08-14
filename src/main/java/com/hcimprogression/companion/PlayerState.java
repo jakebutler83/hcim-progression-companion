@@ -8,6 +8,7 @@ public class PlayerState
     private int x;
     private int y;
     private int plane;
+    private boolean instanced;
     private long timestamp;
 
     public String getPlayerName()
@@ -68,6 +69,16 @@ public class PlayerState
     public void setPlane(int plane)
     {
         this.plane = plane;
+    }
+
+    public boolean isInstanced()
+    {
+        return instanced;
+    }
+
+    public void setInstanced(boolean instanced)
+    {
+        this.instanced = instanced;
     }
 
     public long getTimestamp()

@@ -15,7 +15,7 @@ public class LocationService
             return null;
         }
 
-        WorldPoint point = player.getWorldLocation();
+        WorldPoint point = WorldLocationResolver.resolve(client, player);
 
         if (point == null)
         {
@@ -30,6 +30,7 @@ public class LocationService
         state.setX(point.getX());
         state.setY(point.getY());
         state.setPlane(point.getPlane());
+        state.setInstanced(client.isInInstancedRegion());
         state.setTimestamp(System.currentTimeMillis());
 
         return state;
