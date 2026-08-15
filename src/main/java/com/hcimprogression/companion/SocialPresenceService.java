@@ -246,6 +246,9 @@ public class SocialPresenceService
         int y = point.getY();
 
         if (x >= 2268 && x <= 2596 && y >= 4892 && y <= 5220) return "TzHaar Area";
+        if (point.getPlane() == 1
+            && x >= 2944 && x <= 3071
+            && y >= 5040 && y <= 5119) return "Rogues' Den";
         if (x >= 2716 && x <= 3044 && y >= 5084 && y <= 5412) return "God Wars Dungeon";
         if (x >= 2524 && x <= 3044 && y >= 9500 && y <= 10084) return "Taverley Underground";
         if (x >= 1244 && x <= 1956 && y >= 9692 && y <= 10212) return "Kourend Underground";
