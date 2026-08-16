@@ -11,6 +11,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
@@ -65,6 +66,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final String DISPLAY_NAME_KEY = "linkedDisplayName";
     private static final String TOKEN_KEY_PREFIX = "deviceToken.";
     private static final String DISPLAY_NAME_KEY_PREFIX = "linkedDisplayName.";
+    private static final String ACCOUNT_SNAPSHOT_FINGERPRINT_KEY_PREFIX = "accountSnapshotFingerprint.";
     private static final int BASE_SYNC_TICKS = 5;
     private static final long LIVE_HEARTBEAT_MILLIS = 5 * 60_000L;
     private static final long LIVE_CHANGE_COOLDOWN_MILLIS = 15_000L;
@@ -141,8 +143,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastAutomaticAccountSyncAt;
     private volatile boolean accountSyncInFlight;
     private volatile long accountSyncRateLimitedUntil;
-    private volatile GameState lastObservedGameState = GameState.UNKNOWN;
+    private boolean accountSessionActive;
     private ScheduledExecutorService automaticAccountSyncScheduler;
+    private ScheduledFuture<?> automaticAccountSyncTask;
 
     @Override
     protected void startUp()
@@ -184,7 +187,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastAutomaticAccountSyncAt = 0L;
         accountSyncInFlight = false;
         accountSyncRateLimitedUntil = 0L;
-        lastObservedGameState = client.getGameState();
+        accountSessionActive = client.getGameState() == GameState.LOGGED_IN;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
@@ -219,8 +222,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
             thread.setDaemon(true);
             return thread;
         });
-        automaticAccountSyncScheduler.scheduleAtFixedRate(
-            this::runPeriodicAutomaticAccountSync,
+        automaticAccountSyncTask = automaticAccountSyncScheduler.scheduleAtFixedRate(
+            () -> clientThread.invokeLater(this::runPeriodicAutomaticAccountSync),
             AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS,
             AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS,
             TimeUnit.MILLISECONDS
@@ -232,6 +235,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void shutDown()
     {
+        if (automaticAccountSyncTask != null)
+        {
+            automaticAccountSyncTask.cancel(false);
+            automaticAccountSyncTask = null;
+        }
         if (automaticAccountSyncScheduler != null)
         {
             automaticAccountSyncScheduler.shutdownNow();
@@ -252,7 +260,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         liveSyncInFlight = false;
         clanSyncInFlight = false;
         accountSyncInFlight = false;
-        lastObservedGameState = GameState.UNKNOWN;
+        accountSessionActive = false;
         liveBackoff.reset();
         clanBackoff.reset();
         clanChangeCooldown.reset();
@@ -276,7 +284,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastAutomaticAccountSyncAt = now;
         automaticAccountSyncDirty = false;
         automaticAccountSyncDebounceTicks = 0;
-        syncAccountNow();
+        syncAccountAutomatically();
     }
 
     private void linkCompanion(String code)
@@ -306,7 +314,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void syncAccountNow()
     {
-        syncAccountNow(false);
+        syncAccountNow(false, true);
+    }
+
+    private void syncAccountAutomatically()
+    {
+        syncAccountNow(false, false);
+    }
+
+    private void syncAccountAutomatically(boolean allowCachedSnapshot)
+    {
+        syncAccountNow(allowCachedSnapshot, false);
     }
 
     /**
@@ -316,7 +334,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
      * reliable representation of the account and can be enriched with fresh
      * hiscore data.
      */
-    private void syncAccountNow(boolean allowCachedSnapshot)
+    private void syncAccountNow(boolean allowCachedSnapshot, boolean forceUpload)
     {
         long now = System.currentTimeMillis();
         if (now < accountSyncRateLimitedUntil)
@@ -435,9 +453,33 @@ public class HcimProgressionCompanionPlugin extends Plugin
                             logger.warn("Could not fetch clue totals from hiscores; syncing captured data only", combinedError);
                         }
 
+                        String snapshotFingerprint = AccountSnapshotFingerprint.create(gson, snapshot);
+                        String snapshotFingerprintKey = accountSnapshotFingerprintKey(snapshot.getPlayerName(), token);
+                        String savedFingerprint = configManager.getConfiguration(
+                            HcimProgressionCompanionConfig.GROUP,
+                            snapshotFingerprintKey
+                        );
+                        if (!forceUpload && snapshotFingerprint.equals(savedFingerprint))
+                        {
+                            accountSyncInFlight = false;
+                            SwingUtilities.invokeLater(() ->
+                            {
+                                if (panel != null) panel.showAccountSyncUnchanged();
+                            });
+                            return;
+                        }
+
                         syncService.syncAccount(config.apiBaseUrl(), token, snapshot, (result, error) ->
                         {
                             accountSyncInFlight = false;
+                            if (error == null && result != null)
+                            {
+                                configManager.setConfiguration(
+                                    HcimProgressionCompanionConfig.GROUP,
+                                    snapshotFingerprintKey,
+                                    snapshotFingerprint
+                                );
+                            }
                             SwingUtilities.invokeLater(() ->
                             {
                                 if (panel == null) return;
@@ -632,16 +674,18 @@ public class HcimProgressionCompanionPlugin extends Plugin
     public void onGameStateChanged(GameStateChanged event)
     {
         GameState nextState = event.getGameState();
-        GameState previousState = lastObservedGameState;
-        lastObservedGameState = nextState;
+        boolean sessionStarted = nextState == GameState.LOGGED_IN && !accountSessionActive;
+        if (sessionStarted)
+        {
+            accountSessionActive = true;
+        }
 
         // A farm timer can be unchanged while the client is restarted or the
         // account is switched.  In that case no varbit transition fires, so
         // relying only on farm-change events leaves the website showing an
         // empty board.  Upload the current Time Tracking snapshot once after
         // every successful login as well.
-        if (nextState == GameState.LOGGED_IN
-            && previousState != GameState.LOGGED_IN
+        if (sessionStarted
             && config.automaticAccountSyncEnabled()
             && !deviceToken().isEmpty())
         {
@@ -652,21 +696,28 @@ public class HcimProgressionCompanionPlugin extends Plugin
         // Capture the final cached snapshot as soon as the player logs out.
         // This mirrors RuneLite's high-score refresh behavior without waiting
         // for the next login, and avoids trying to read cleared client widgets.
-        if (previousState == GameState.LOGGED_IN
-            && nextState != GameState.LOGGED_IN
-            && !deviceToken().isEmpty())
+        if (isLoggedOutState(nextState) && accountSessionActive)
         {
+            accountSessionActive = false;
             // Clear the old character's live card before the next account can
             // publish through the same Firebase user/profile.
-            clearLivePresenceForLogout();
-            if (config.automaticAccountSyncEnabled() && latestAccountSnapshot != null)
+            if (!deviceToken().isEmpty())
             {
-                automaticAccountSyncDirty = false;
-                automaticAccountSyncDebounceTicks = 0;
-                lastAutomaticAccountSyncAt = System.currentTimeMillis();
-                syncAccountNow(true);
+                clearLivePresenceForLogout();
+                if (config.automaticAccountSyncEnabled() && latestAccountSnapshot != null)
+                {
+                    automaticAccountSyncDirty = false;
+                    automaticAccountSyncDebounceTicks = 0;
+                    lastAutomaticAccountSyncAt = System.currentTimeMillis();
+                    syncAccountAutomatically(true);
+                }
             }
         }
+    }
+
+    private static boolean isLoggedOutState(GameState state)
+    {
+        return state == GameState.LOGIN_SCREEN || state == GameState.LOGIN_SCREEN_AUTHENTICATOR;
     }
 
     private void clearLivePresenceForLogout()
@@ -733,7 +784,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         tearsVisitAccountKey = accountKey;
         lastTearsVisitAt = now;
         lastTearsSyncTriggeredAt = now;
-        syncAccountNow();
+        syncAccountAutomatically();
     }
 
     @Subscribe
@@ -958,7 +1009,6 @@ public class HcimProgressionCompanionPlugin extends Plugin
     {
         if (!config.automaticAccountSyncEnabled())
         {
-            syncAccountNow();
             return;
         }
 
@@ -968,7 +1018,6 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void requestFarmingAccountSync()
     {
-        lastAutomaticAccountSyncAt = 0L;
         automaticAccountSyncDirty = true;
         automaticAccountSyncDebounceTicks = 5;
     }
@@ -991,7 +1040,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
         automaticAccountSyncDirty = false;
         lastAutomaticAccountSyncAt = now;
-        syncAccountNow();
+        syncAccountAutomatically();
+    }
+
+    private String accountSnapshotFingerprintKey(String playerName, String token)
+    {
+        return ACCOUNT_SNAPSHOT_FINGERPRINT_KEY_PREFIX
+            + accountKey(playerName)
+            + "."
+            + AccountSnapshotFingerprint.linkKey(token);
     }
 
     private static long parseRetryAfter(String message)

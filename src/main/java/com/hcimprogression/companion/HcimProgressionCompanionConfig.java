@@ -37,7 +37,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "clanSkillWeekSyncEnabled",
         name = "Share clan Skill of the Week XP",
         description = "Opt in to share your current skill XP with the RuneScape clan Skill of the Week leaderboard. Only your skill totals and RuneScape name are shared.",
-        warning = "This feature shares your skill XP with members viewing the same clan leaderboard",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 2
     )
     default boolean clanSkillWeekSyncEnabled()
@@ -99,7 +99,7 @@ public interface HcimProgressionCompanionConfig extends Config
         name = "Track NPC loot value",
         description = "Keeps a private 30-day NPC loot history with item quantities and estimated GE value. It is sent only with normal Progression Path account syncs.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 6
+        position = 7
     )
     default boolean weeklyLootTrackingEnabled()
     {
@@ -111,7 +111,7 @@ public interface HcimProgressionCompanionConfig extends Config
         name = "Sync OSRS TCG collection",
         description = "Requests your distinct owned card names from OSRS TCG through RuneLite's read-only PluginMessage API and shares that collection progress with your private Progression Path group.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 7
+        position = 8
     )
     default boolean tcgCollectionSyncEnabled()
     {
@@ -123,7 +123,7 @@ public interface HcimProgressionCompanionConfig extends Config
         name = "Automatic account snapshots",
         description = "Automatically syncs every 15 minutes, on logout, quest/diary/collection-log changes, and meaningful skill levels above 40. Burst events (such as clue casket rewards) are coalesced into one upload. The manual Sync Account button remains available.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        position = 8
+        position = 9
     )
     default boolean automaticAccountSyncEnabled()
     {
@@ -134,7 +134,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "apiBaseUrl",
         name = "Website API URL",
         description = "Progression Path API root. Keep the default unless your website administrator provides a dedicated Cloud Run URL.",
-        position = 9
+        position = 10
     )
     default String apiBaseUrl()
     {

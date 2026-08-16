@@ -393,6 +393,16 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountSyncErrorValue.setForeground(MUTED);
     }
 
+    public void showAccountSyncUnchanged()
+    {
+        setAccountSyncCooldown(false);
+        setAccountSyncing(false);
+        accountSyncStatusValue.setText("Up to date \u2022 saved character data");
+        accountSyncStatusValue.setForeground(SUCCESS);
+        accountSyncErrorValue.setText("None");
+        accountSyncErrorValue.setForeground(MUTED);
+    }
+
     public void showAccountSyncAttempt()
     {
         accountSyncAttemptValue.setText(LocalTime.now().format(TIME_FORMAT));
