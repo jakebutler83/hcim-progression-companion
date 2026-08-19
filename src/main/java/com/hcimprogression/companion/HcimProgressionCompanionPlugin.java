@@ -82,6 +82,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS = 15 * 60_000L;
     private static final int AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS = 30;
+    private static final int CLUE_REWARD_CAPTURE_TICKS = 10;
+    private static final long CLUE_REWARD_DUPLICATE_MILLIS = 3_000L;
     private static final Pattern CLUE_SCROLL_PATTERN = Pattern.compile(
         "you have completed [0-9]+ (beginner|easy|medium|hard|elite|master) treasure trails?\\."
     );
@@ -154,6 +156,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private ScheduledFuture<?> automaticAccountSyncTask;
     private String pendingClueRewardSource = "";
     private int pendingClueRewardTicks;
+    private String lastClueRewardFingerprint = "";
+    private long lastClueRewardCapturedAt;
 
     @Override
     protected void startUp()
@@ -196,6 +200,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         accountSyncInFlight = false;
         accountSyncRateLimitedUntil = 0L;
         accountSessionActive = client.getGameState() == GameState.LOGGED_IN;
+        pendingClueRewardSource = "";
+        pendingClueRewardTicks = 0;
+        lastClueRewardFingerprint = "";
+        lastClueRewardCapturedAt = 0L;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
@@ -755,12 +763,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (clueMatcher.find() && config.weeklyLootTrackingEnabled())
         {
             String tier = clueMatcher.group(1);
-            pendingClueRewardSource = "Clue Scroll ("
-                + Character.toUpperCase(tier.charAt(0)) + tier.substring(1) + ")";
+            beginClueRewardCapture("Clue Scroll ("
+                + Character.toUpperCase(tier.charAt(0)) + tier.substring(1) + ")");
             // RuneLite fills TRAIL_REWARDINV with the actual casket rewards.
-            // Read it immediately like the Loot Tracker plugin, while retaining
-            // a short fallback for clients whose container settles afterward.
-            pendingClueRewardTicks = 2;
+            // The chat line normally supplies the clue tier, but the reward
+            // inventory can arrive before or after it. Try now and retain the
+            // same ten-tick window RuneLite uses for inventory-change loot.
             capturePendingClueReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
         }
         boolean collectionLogEvent = normalized.contains("new collection log item")
@@ -855,9 +863,31 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
+        items.sort((left, right) ->
+        {
+            int idCompare = Integer.compare(left.getId(), right.getId());
+            return idCompare != 0 ? idCompare : Integer.compare(left.getQuantity(), right.getQuantity());
+        });
+        StringBuilder fingerprintBuilder = new StringBuilder();
+        for (ItemStack item : items)
+        {
+            fingerprintBuilder.append(item.getId()).append(':').append(item.getQuantity()).append(';');
+        }
+        String fingerprint = fingerprintBuilder.toString();
+        long now = System.currentTimeMillis();
+        if (fingerprint.equals(lastClueRewardFingerprint)
+            && now - lastClueRewardCapturedAt < CLUE_REWARD_DUPLICATE_MILLIS)
+        {
+            pendingClueRewardSource = "";
+            pendingClueRewardTicks = 0;
+            return;
+        }
+
         String source = pendingClueRewardSource;
         pendingClueRewardSource = "";
         pendingClueRewardTicks = 0;
+        lastClueRewardFingerprint = fingerprint;
+        lastClueRewardCapturedAt = now;
         weeklyLootTrackerService.recordEventLoot(
             source,
             items,
@@ -871,6 +901,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
             // log popups from one casket cannot create an upload burst.
             requestAutomaticAccountSync();
         }
+    }
+
+    private void beginClueRewardCapture(String source)
+    {
+        if (pendingClueRewardSource.isEmpty()
+            || "Clue Scroll".equals(pendingClueRewardSource)
+            || !"Clue Scroll".equals(source))
+        {
+            pendingClueRewardSource = source;
+        }
+        pendingClueRewardTicks = CLUE_REWARD_CAPTURE_TICKS;
     }
 
     @Subscribe
@@ -912,9 +953,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
-        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV && !pendingClueRewardSource.isEmpty())
+        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV && config.weeklyLootTrackingEnabled())
         {
-            capturePendingClueReward(event.getItemContainer());
+            // Do not depend on chat ordering. Stage a generic source here and
+            // allow the clue-completion line to replace it with the exact tier.
+            beginClueRewardCapture("Clue Scroll");
         }
 
         if (event.getContainerId() == InventoryID.BANK
@@ -940,6 +983,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event)
     {
+        if (event.getGroupId() == InterfaceID.TRAIL_REWARDSCREEN
+            && config.weeklyLootTrackingEnabled())
+        {
+            // Some clients deliver the widget before the reward inventory and
+            // others do the reverse. Both paths now share one capture window.
+            beginClueRewardCapture("Clue Scroll");
+        }
+
         if (event.getGroupId() == InterfaceID.BANKMAIN)
         {
             capturePersonalBank(client.getItemContainer(InventoryID.BANK));
