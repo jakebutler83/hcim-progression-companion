@@ -96,8 +96,8 @@ public interface HcimProgressionCompanionConfig extends Config
 
     @ConfigItem(
         keyName = "weeklyLootTrackingEnabled",
-        name = "Track NPC loot value",
-        description = "Keeps a private 30-day NPC loot history with item quantities and estimated GE value. It is sent only with normal Progression Path account syncs.",
+        name = "Track loot value",
+        description = "Keeps a private 30-day NPC and clue-scroll reward history with item quantities and estimated GE value. It is sent only with normal Progression Path account syncs.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 7
     )

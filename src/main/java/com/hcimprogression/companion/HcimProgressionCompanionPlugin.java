@@ -3,6 +3,8 @@ package com.hcimprogression.companion;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -41,6 +43,7 @@ import net.runelite.client.events.PluginMessage;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreEndpoint;
@@ -79,6 +82,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final long AUTOMATIC_ACCOUNT_SYNC_COOLDOWN_MILLIS = 5 * 60_000L;
     private static final long AUTOMATIC_ACCOUNT_SYNC_HEARTBEAT_MILLIS = 15 * 60_000L;
     private static final int AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS = 30;
+    private static final Pattern CLUE_SCROLL_PATTERN = Pattern.compile(
+        "you have completed [0-9]+ (beginner|easy|medium|hard|elite|master) treasure trails?\\."
+    );
     private static final Pattern RETRY_AFTER_PATTERN = Pattern.compile("Retry after (\\d+) seconds", Pattern.CASE_INSENSITIVE);
 
     @Inject private Client client;
@@ -146,6 +152,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private boolean accountSessionActive;
     private ScheduledExecutorService automaticAccountSyncScheduler;
     private ScheduledFuture<?> automaticAccountSyncTask;
+    private String pendingClueRewardSource = "";
+    private int pendingClueRewardTicks;
 
     @Override
     protected void startUp()
@@ -739,7 +747,22 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
-        String normalized = message.replaceAll("<[^>]+>", " ").toLowerCase(Locale.ROOT);
+        String normalized = message.replaceAll("<[^>]+>", " ")
+            .replaceAll("\\s+", " ")
+            .trim()
+            .toLowerCase(Locale.ROOT);
+        Matcher clueMatcher = CLUE_SCROLL_PATTERN.matcher(normalized);
+        if (clueMatcher.find() && config.weeklyLootTrackingEnabled())
+        {
+            String tier = clueMatcher.group(1);
+            pendingClueRewardSource = "Clue Scroll ("
+                + Character.toUpperCase(tier.charAt(0)) + tier.substring(1) + ")";
+            // RuneLite fills TRAIL_REWARDINV with the actual casket rewards.
+            // Read it immediately like the Loot Tracker plugin, while retaining
+            // a short fallback for clients whose container settles afterward.
+            pendingClueRewardTicks = 2;
+            capturePendingClueReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
+        }
         boolean collectionLogEvent = normalized.contains("new collection log item")
             || normalized.contains("added to your collection log")
             || normalized.contains("collection log entry");
@@ -813,6 +836,43 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
     }
 
+    private void capturePendingClueReward(ItemContainer container)
+    {
+        if (pendingClueRewardSource.isEmpty() || container == null)
+        {
+            return;
+        }
+        List<ItemStack> items = new ArrayList<>();
+        for (net.runelite.api.Item item : container.getItems())
+        {
+            if (item != null && item.getId() > 0 && item.getQuantity() > 0)
+            {
+                items.add(new ItemStack(item.getId(), item.getQuantity()));
+            }
+        }
+        if (items.isEmpty())
+        {
+            return;
+        }
+
+        String source = pendingClueRewardSource;
+        pendingClueRewardSource = "";
+        pendingClueRewardTicks = 0;
+        weeklyLootTrackerService.recordEventLoot(
+            source,
+            items,
+            itemManager,
+            configManager,
+            gson
+        );
+        if (config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+        {
+            // Uses the existing account-sync debounce, so several collection
+            // log popups from one casket cannot create an upload burst.
+            requestAutomaticAccountSync();
+        }
+    }
+
     @Subscribe
     public void onStatChanged(StatChanged event)
     {
@@ -852,6 +912,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV && !pendingClueRewardSource.isEmpty())
+        {
+            capturePendingClueReward(event.getItemContainer());
+        }
+
         if (event.getContainerId() == InventoryID.BANK
             && client.getTopLevelInterfaceId() == InterfaceID.BANKMAIN)
         {
@@ -914,6 +979,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             if (panel != null) SwingUtilities.invokeLater(panel::showLoggedOut);
             return;
+        }
+
+        if (!pendingClueRewardSource.isEmpty() && pendingClueRewardTicks > 0 && --pendingClueRewardTicks == 0)
+        {
+            capturePendingClueReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
+            // Do not allow an empty or closed reward container to leak into the
+            // next casket and mislabel its contents.
+            pendingClueRewardSource = "";
         }
 
         boolean birdhousesChanged = birdhouseTracker != null && birdhouseTracker.update(client);

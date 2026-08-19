@@ -5,13 +5,17 @@ import com.google.gson.JsonSyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 
 /**
- * Keeps monotonic, RuneScape-profile-scoped NPC loot totals plus a bounded
+ * Keeps monotonic, RuneScape-profile-scoped NPC and clue loot totals plus a bounded
  * local history. The history is uploaded only during normal account syncs, so
  * no per-drop network request is required and gameplay never waits on the site.
  */
@@ -23,8 +27,32 @@ public class WeeklyLootTrackerService
     private static final String DROP_HISTORY_KEY = "weeklyLootDropHistory";
     private static final int MAX_STORED_DROPS = 250;
     private static final long DROP_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1000L;
+    private static final Map<String, List<String>> SLAYER_SOURCE_ALIASES = createSlayerSourceAliases();
 
     public void recordNpcLoot(
+        String source,
+        int npcId,
+        String slayerTask,
+        Collection<ItemStack> items,
+        ItemManager itemManager,
+        ConfigManager configManager,
+        Gson gson)
+    {
+        String verifiedTask = sourceMatchesSlayerTask(source, slayerTask) ? slayerTask : "";
+        recordLoot(source, npcId, verifiedTask, items, itemManager, configManager, gson);
+    }
+
+    public void recordEventLoot(
+        String source,
+        Collection<ItemStack> items,
+        ItemManager itemManager,
+        ConfigManager configManager,
+        Gson gson)
+    {
+        recordLoot(source, 0, "", items, itemManager, configManager, gson);
+    }
+
+    private void recordLoot(
         String source,
         int npcId,
         String slayerTask,
@@ -109,6 +137,61 @@ public class WeeklyLootTrackerService
             DROP_HISTORY_KEY,
             gson.toJson(history)
         );
+    }
+
+    static boolean sourceMatchesSlayerTask(String source, String slayerTask)
+    {
+        String actual = normalizeSlayerName(source);
+        String target = normalizeSlayerName(slayerTask);
+        if (actual.isEmpty() || target.isEmpty() || target.startsWith("no active task"))
+        {
+            return false;
+        }
+        if (actual.equals(target) || (target.endsWith("s") && actual.equals(target.substring(0, target.length() - 1))))
+        {
+            return true;
+        }
+        return SLAYER_SOURCE_ALIASES.getOrDefault(target, Collections.emptyList()).contains(actual);
+    }
+
+    private static String normalizeSlayerName(String value)
+    {
+        if (value == null)
+        {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT)
+            .replaceAll("\\b(task|assignment)\\b", " ")
+            .replaceAll("['’]", "")
+            .replaceAll("[^a-z0-9]+", " ")
+            .trim();
+    }
+
+    private static Map<String, List<String>> createSlayerSourceAliases()
+    {
+        Map<String, List<String>> aliases = new HashMap<>();
+        aliases.put("abyssal demons", Arrays.asList("abyssal demon", "abyssal sire"));
+        aliases.put("aviansies", Arrays.asList("aviansie", "k ril tsutsaroth", "flight kilisa", "flockleader geerin", "wingman skree"));
+        aliases.put("black demons", Arrays.asList("black demon", "demonic gorilla", "tortured gorilla", "skotizo"));
+        aliases.put("black dragons", Arrays.asList("black dragon", "baby black dragon", "brutal black dragon", "king black dragon"));
+        aliases.put("blue dragons", Arrays.asList("blue dragon", "baby blue dragon", "brutal blue dragon"));
+        aliases.put("dogs", Arrays.asList("guard dog", "wild dog"));
+        aliases.put("elves", Arrays.asList("elf", "iorwerth warrior", "iorwerth archer"));
+        aliases.put("fossil island wyverns", Arrays.asList("spitting wyvern", "taloned wyvern", "long tailed wyvern", "ancient wyvern"));
+        aliases.put("gargoyles", Arrays.asList("gargoyle", "dusk", "dawn"));
+        aliases.put("greater demons", Arrays.asList("greater demon", "k ril tsutsaroth"));
+        aliases.put("hellhounds", Arrays.asList("hellhound", "cerberus"));
+        aliases.put("hydras", Arrays.asList("hydra", "alchemical hydra"));
+        aliases.put("kraken", Arrays.asList("cave kraken", "kraken"));
+        aliases.put("lizardmen", Arrays.asList("lizardman", "lizardman brute", "lizardman shaman"));
+        aliases.put("red dragons", Arrays.asList("red dragon", "brutal red dragon"));
+        aliases.put("shades", Arrays.asList("loar shade", "phrin shade", "riyl shade", "asyn shade", "fiyr shade", "urium shade"));
+        aliases.put("smoke devils", Arrays.asList("smoke devil", "thermonuclear smoke devil"));
+        aliases.put("spiritual creatures", Arrays.asList("spiritual ranger", "spiritual warrior", "spiritual mage"));
+        aliases.put("tzhaar", Arrays.asList("tzhaar ket", "tzhaar xil", "tzhaar mej", "tztok jad", "tzkal zuk"));
+        aliases.put("wolves", Arrays.asList("wolf", "white wolf", "dire wolf"));
+        aliases.put("zombies", Arrays.asList("zombie", "undead one"));
+        return aliases;
     }
 
     public void applyTo(AccountSnapshot snapshot, ConfigManager configManager, Gson gson, boolean enabled)
