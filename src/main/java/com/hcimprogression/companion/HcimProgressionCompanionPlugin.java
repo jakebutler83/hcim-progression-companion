@@ -147,6 +147,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile String lastSlayerFingerprint = "";
     private volatile String lastProgressFingerprint = "";
     private volatile boolean automaticAccountSyncDirty;
+    private volatile boolean automaticAccountSyncNotificationEligible;
     private int automaticAccountSyncDebounceTicks;
     private volatile long lastAutomaticAccountSyncAt;
     private volatile boolean accountSyncInFlight;
@@ -195,6 +196,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastSlayerFingerprint = "";
         lastProgressFingerprint = "";
         automaticAccountSyncDirty = false;
+        automaticAccountSyncNotificationEligible = false;
         automaticAccountSyncDebounceTicks = 0;
         lastAutomaticAccountSyncAt = 0L;
         accountSyncInFlight = false;
@@ -298,9 +300,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
 
         lastAutomaticAccountSyncAt = now;
+        boolean notificationEligible = automaticAccountSyncNotificationEligible;
         automaticAccountSyncDirty = false;
+        automaticAccountSyncNotificationEligible = false;
         automaticAccountSyncDebounceTicks = 0;
-        syncAccountAutomatically();
+        syncAccountNow(false, false, notificationEligible);
     }
 
     private void linkCompanion(String code)
@@ -330,17 +334,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void syncAccountNow()
     {
-        syncAccountNow(false, true);
-    }
-
-    private void syncAccountAutomatically()
-    {
-        syncAccountNow(false, false);
+        syncAccountNow(false, true, false);
     }
 
     private void syncAccountAutomatically(boolean allowCachedSnapshot)
     {
-        syncAccountNow(allowCachedSnapshot, false);
+        syncAccountNow(allowCachedSnapshot, false, false);
     }
 
     /**
@@ -350,7 +349,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
      * reliable representation of the account and can be enriched with fresh
      * hiscore data.
      */
-    private void syncAccountNow(boolean allowCachedSnapshot, boolean forceUpload)
+    private void syncAccountNow(boolean allowCachedSnapshot, boolean forceUpload, boolean notificationEligible)
     {
         long now = System.currentTimeMillis();
         if (now < accountSyncRateLimitedUntil)
@@ -485,7 +484,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
                             return;
                         }
 
-                        syncService.syncAccount(config.apiBaseUrl(), token, snapshot, (result, error) ->
+                        syncService.syncAccount(
+                            config.apiBaseUrl(),
+                            token,
+                            snapshot,
+                            notificationEligible ? "game-event" : "refresh",
+                            (result, error) ->
                         {
                             accountSyncInFlight = false;
                             if (error == null && result != null)
@@ -723,6 +727,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 if (config.automaticAccountSyncEnabled() && latestAccountSnapshot != null)
                 {
                     automaticAccountSyncDirty = false;
+                    automaticAccountSyncNotificationEligible = false;
                     automaticAccountSyncDebounceTicks = 0;
                     lastAutomaticAccountSyncAt = System.currentTimeMillis();
                     syncAccountAutomatically(true);
@@ -815,7 +820,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         tearsVisitAccountKey = accountKey;
         lastTearsVisitAt = now;
         lastTearsSyncTriggeredAt = now;
-        syncAccountAutomatically();
+        syncAccountNow(false, false, false);
     }
 
     @Subscribe
@@ -944,7 +949,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
             }
             if (result != null && config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
             {
-                requestAutomaticAccountSync();
+                // Opening or paging through the Collection Log is a refresh,
+                // not proof that a new item was obtained in-game.
+                requestAutomaticAccountSync(false);
             }
         });
     }
@@ -1045,7 +1052,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (birdhousesChanged && birdhouseNow - lastBirdhouseSyncAt >= BIRDHOUSE_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
             lastBirdhouseSyncAt = birdhouseNow;
-            requestAutomaticAccountSync();
+            // Birdhouse readiness is handled by the timer scheduler. The
+            // snapshot refresh itself must not replay account-gain alerts.
+            requestAutomaticAccountSync(false);
         }
         boolean farmRunsChanged = farmRunTracker != null && farmRunTracker.update(client);
         if (farmRunsChanged && birdhouseNow - lastFarmRunSyncAt >= FARM_RUN_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
@@ -1057,7 +1066,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
             + client.getVarpValue(VarPlayerID.SLAYER_COUNT) + ":"
             + client.getVarbitValue(VarbitID.SLAYER_POINTS) + ":"
             + client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED);
-        boolean slayerChanged = !slayerFingerprint.equals(lastSlayerFingerprint);
+        boolean slayerInitialized = !lastSlayerFingerprint.isEmpty();
+        boolean slayerChanged = slayerInitialized && !slayerFingerprint.equals(lastSlayerFingerprint);
         lastSlayerFingerprint = slayerFingerprint;
         if (slayerChanged && birdhouseNow - lastSlayerSyncAt >= SLAYER_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
         {
@@ -1073,7 +1083,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 if (lastProgressFingerprint.isEmpty())
                 {
                     lastProgressFingerprint = progressFingerprint;
-                    requestAutomaticAccountSync();
+                    requestAutomaticAccountSync(false);
                 }
                 else if (!progressFingerprint.equals(lastProgressFingerprint))
                 {
@@ -1087,6 +1097,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         else
         {
             automaticAccountSyncDirty = false;
+            automaticAccountSyncNotificationEligible = false;
             automaticAccountSyncDebounceTicks = 0;
             lastProgressFingerprint = "";
         }
@@ -1131,18 +1142,26 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void requestAutomaticAccountSync()
     {
+        requestAutomaticAccountSync(true);
+    }
+
+    private void requestAutomaticAccountSync(boolean notificationEligible)
+    {
         if (!config.automaticAccountSyncEnabled())
         {
             return;
         }
 
         automaticAccountSyncDirty = true;
+        automaticAccountSyncNotificationEligible |= notificationEligible;
         automaticAccountSyncDebounceTicks = AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS;
     }
 
     private void requestFarmingAccountSync()
     {
         automaticAccountSyncDirty = true;
+        // Farm-ready notifications come from their saved timer schedules, so
+        // a patch-state upload should remain silent for account-gain alerts.
         automaticAccountSyncDebounceTicks = 5;
     }
 
@@ -1162,9 +1181,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
+        boolean notificationEligible = automaticAccountSyncNotificationEligible;
         automaticAccountSyncDirty = false;
+        automaticAccountSyncNotificationEligible = false;
         lastAutomaticAccountSyncAt = now;
-        syncAccountAutomatically();
+        syncAccountNow(false, false, notificationEligible);
     }
 
     private String accountSnapshotFingerprintKey(String playerName, String token)
@@ -1758,6 +1779,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
         activePlayerKey = key;
+        automaticAccountSyncDirty = false;
+        automaticAccountSyncNotificationEligible = false;
+        automaticAccountSyncDebounceTicks = 0;
+        lastProgressFingerprint = "";
+        lastSlayerFingerprint = "";
         collectionLogCaptureService.reset();
         pendingGroupStorageSnapshot = null;
         groupStorageDirty = false;

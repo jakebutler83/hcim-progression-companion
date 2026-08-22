@@ -363,7 +363,11 @@ public class SyncService {
             String apiBaseUrl,
             String token,
             AccountSnapshot snapshot,
+            String notificationSource,
             BiConsumer<AccountSyncResult, String> callback) {
+        String normalizedNotificationSource = "game-event".equals(notificationSource)
+            ? "game-event"
+            : "refresh";
         StringBuilder skills = new StringBuilder("{");
         boolean firstSkill = true;
 
@@ -483,6 +487,9 @@ public class SyncService {
         String json = "{"
                 + "\"playerName\":\""
                 + escape(snapshot.getPlayerName())
+                + "\","
+                + "\"notificationSource\":\""
+                + normalizedNotificationSource
                 + "\","
                 + "\"questPoints\":"
                 + snapshot.getQuestPoints()
