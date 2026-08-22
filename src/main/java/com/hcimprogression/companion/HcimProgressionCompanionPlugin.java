@@ -1221,14 +1221,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 continue;
             }
             // XP changes at low levels are frequent and do not need a network
-            // snapshot. Track level transitions once a skill is meaningfully
-            // progressed; the 15-minute heartbeat still captures exact XP.
+            // snapshot. Track each level transition once a skill is
+            // meaningfully progressed; the server expands a multi-level
+            // snapshot into one deduplicated notification per level.
             int level = client.getRealSkillLevel(skill);
-            // Below 40, the periodic heartbeat is sufficient. Above 40,
-            // coalesce level changes into two-level buckets to avoid a
-            // network sync on every individual level.
-            int bucket = level > 40 ? 40 + ((level - 40) / 2) : 0;
-            fingerprint.append(bucket).append('|');
+            // Below 40, the periodic heartbeat is sufficient. Above 40, an
+            // exact level transition is retained so no real level-up is
+            // silently skipped by two-level bucketing.
+            int trackedLevel = level > 40 ? level : 0;
+            fingerprint.append(trackedLevel).append('|');
         }
 
         fingerprint.append(client.getVarpValue(net.runelite.api.VarPlayer.QUEST_POINTS)).append('|')
