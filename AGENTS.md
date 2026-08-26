@@ -59,10 +59,11 @@
 ## Plugin Hub Release Hash
 
 - Companion source releases are not complete until the RuneLite Plugin Hub manifest points at the exact pushed companion commit.
-- The repository workflow `.github/workflows/update-plugin-hub-hash.yml` performs this update after every push to `main`.
-- Keep the target manifest at `jakebutler83/plugin-hub`, branch `add-hcim-progression-companion`, file `plugins/hcim-progression-companion` unless the active Plugin Hub submission moves.
+- The public plugin is already accepted. Do not update Plugin Hub after every development commit.
+- The repository workflow `.github/workflows/update-plugin-hub-hash.yml` runs when a GitHub release is published or when manually dispatched for an intentional public release.
+- Each run starts from the current `runelite/plugin-hub` `master`, pushes `jakebutler83/plugin-hub:update-hcim-progression-companion`, and opens or refreshes a RuneLite review pull request for `plugins/hcim-progression-companion`.
 - Never insert a local-only commit hash into Plugin Hub. The workflow runs only after GitHub has accepted the companion commit.
-- If the workflow is unavailable, explicitly report that the Plugin Hub hash still needs updating; do not describe a companion release as submitted or approval-ready while the manifest is stale.
+- If the workflow is unavailable, explicitly report that the public Plugin Hub release still needs a new reviewed update PR; do not describe a companion release as publicly available while the manifest is stale.
 
 ## Resources & Assets
 
