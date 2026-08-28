@@ -47,12 +47,33 @@ jobs:
           echo "## Plugin Hub release submission skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "Add the repository secret PLUGIN_HUB_TOKEN, then run this workflow manually." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check out public Plugin Hub fork
+      - name: Prepare public Plugin Hub update branch
+        if: env.PLUGIN_HUB_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ env.PLUGIN_HUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          UPSTREAM_SHA="$(gh api repos/runelite/plugin-hub/git/ref/heads/master --jq '.object.sha')"
+          if gh api "repos/jakebutler83/plugin-hub/git/ref/heads/${PLUGIN_HUB_BRANCH}" >/dev/null 2>&1; then
+            gh api \
+              --method PATCH \
+              "repos/jakebutler83/plugin-hub/git/refs/heads/${PLUGIN_HUB_BRANCH}" \
+              -f sha="$UPSTREAM_SHA" \
+              -F force=true >/dev/null
+          else
+            gh api \
+              --method POST \
+              repos/jakebutler83/plugin-hub/git/refs \
+              -f ref="refs/heads/${PLUGIN_HUB_BRANCH}" \
+              -f sha="$UPSTREAM_SHA" >/dev/null
+          fi
+
+      - name: Check out public Plugin Hub update branch
         if: env.PLUGIN_HUB_TOKEN != ''
         uses: actions/checkout@v6
         with:
           repository: jakebutler83/plugin-hub
-          ref: master
+          ref: ${{ env.PLUGIN_HUB_BRANCH }}
           path: plugin-hub
           persist-credentials: false
           fetch-depth: 0
