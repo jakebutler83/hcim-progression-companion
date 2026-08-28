@@ -47,11 +47,11 @@ jobs:
           echo "## Plugin Hub release submission skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "Add the repository secret PLUGIN_HUB_TOKEN, then run this workflow manually." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check out current RuneLite Plugin Hub
+      - name: Check out public Plugin Hub fork
         if: env.PLUGIN_HUB_TOKEN != ''
         uses: actions/checkout@v6
         with:
-          repository: runelite/plugin-hub
+          repository: jakebutler83/plugin-hub
           ref: master
           path: plugin-hub
           persist-credentials: false
