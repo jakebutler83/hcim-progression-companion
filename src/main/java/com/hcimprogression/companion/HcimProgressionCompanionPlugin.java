@@ -84,6 +84,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final int AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS = 30;
     private static final int CLUE_REWARD_CAPTURE_TICKS = 10;
     private static final long CLUE_REWARD_DUPLICATE_MILLIS = 3_000L;
+    private static final long BARROWS_REWARD_DUPLICATE_MILLIS = 5_000L;
     private static final Pattern CLUE_SCROLL_PATTERN = Pattern.compile(
         "you have completed [0-9]+ (beginner|easy|medium|hard|elite|master) treasure trails?\\."
     );
@@ -159,6 +160,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private int pendingClueRewardTicks;
     private String lastClueRewardFingerprint = "";
     private long lastClueRewardCapturedAt;
+    private String lastBarrowsRewardFingerprint = "";
+    private long lastBarrowsRewardCapturedAt;
 
     @Override
     protected void startUp()
@@ -206,6 +209,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         pendingClueRewardTicks = 0;
         lastClueRewardFingerprint = "";
         lastClueRewardCapturedAt = 0L;
+        lastBarrowsRewardFingerprint = "";
+        lastBarrowsRewardCapturedAt = 0L;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
@@ -919,6 +924,59 @@ public class HcimProgressionCompanionPlugin extends Plugin
         pendingClueRewardTicks = CLUE_REWARD_CAPTURE_TICKS;
     }
 
+    private void captureBarrowsReward(ItemContainer container)
+    {
+        if (!config.weeklyLootTrackingEnabled() || container == null)
+        {
+            return;
+        }
+
+        List<ItemStack> items = new ArrayList<>();
+        for (net.runelite.api.Item item : container.getItems())
+        {
+            if (item != null && item.getId() > 0 && item.getQuantity() > 0)
+            {
+                items.add(new ItemStack(item.getId(), item.getQuantity()));
+            }
+        }
+        if (items.isEmpty())
+        {
+            return;
+        }
+
+        items.sort((left, right) ->
+        {
+            int idCompare = Integer.compare(left.getId(), right.getId());
+            return idCompare != 0 ? idCompare : Integer.compare(left.getQuantity(), right.getQuantity());
+        });
+        StringBuilder fingerprintBuilder = new StringBuilder();
+        for (ItemStack item : items)
+        {
+            fingerprintBuilder.append(item.getId()).append(':').append(item.getQuantity()).append(';');
+        }
+        String fingerprint = fingerprintBuilder.toString();
+        long now = System.currentTimeMillis();
+        if (fingerprint.equals(lastBarrowsRewardFingerprint)
+            && now - lastBarrowsRewardCapturedAt < BARROWS_REWARD_DUPLICATE_MILLIS)
+        {
+            return;
+        }
+
+        lastBarrowsRewardFingerprint = fingerprint;
+        lastBarrowsRewardCapturedAt = now;
+        weeklyLootTrackerService.recordEventLoot(
+            "Barrows",
+            items,
+            itemManager,
+            configManager,
+            gson
+        );
+        if (config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
+        {
+            requestAutomaticAccountSync();
+        }
+    }
+
     @Subscribe
     public void onStatChanged(StatChanged event)
     {
@@ -960,7 +1018,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
-        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV && config.weeklyLootTrackingEnabled())
+        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV
+            && client.getTopLevelInterfaceId() == InterfaceID.BARROWS_REWARD)
+        {
+            captureBarrowsReward(event.getItemContainer());
+        }
+
+        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV
+            && client.getTopLevelInterfaceId() != InterfaceID.BARROWS_REWARD
+            && config.weeklyLootTrackingEnabled())
         {
             // Do not depend on chat ordering. Stage a generic source here and
             // allow the clue-completion line to replace it with the exact tier.
@@ -990,6 +1056,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event)
     {
+        if (event.getGroupId() == InterfaceID.BARROWS_REWARD)
+        {
+            captureBarrowsReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
+        }
+
         if (event.getGroupId() == InterfaceID.TRAIL_REWARDSCREEN
             && config.weeklyLootTrackingEnabled())
         {
