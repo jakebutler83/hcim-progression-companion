@@ -37,8 +37,16 @@ public class BirdhouseTracker
             if (previous == null)
             {
                 long stored = readTimestamp(house.varp, value);
-                states.put(house.varp, new State(value, stored > 0 ? stored : now));
-                changed = stored <= 0;
+                long changedAt = stored > 0 ? stored : now;
+                states.put(house.varp, new State(value, changedAt));
+                if (stored <= 0)
+                {
+                    // Persist the initial observation too. Without this, a
+                    // client restart reset an unchanged birdhouse timer to
+                    // another full 50 minutes and delayed the website alert.
+                    writeTimestamp(house.varp, value, changedAt);
+                    changed = true;
+                }
             }
             else if (previous.value != value)
             {
