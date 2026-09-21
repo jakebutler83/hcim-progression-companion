@@ -53,7 +53,11 @@ jobs:
           GH_TOKEN: ${{ env.PLUGIN_HUB_TOKEN }}
         run: |
           set -euo pipefail
-          UPSTREAM_SHA="$(gh api repos/runelite/plugin-hub/git/ref/heads/master --jq '.object.sha')"
+          # The fine-grained token is intentionally limited to the user's fork.
+          # Read RuneLite's public master ref without that credential so GitHub
+          # does not reject the otherwise-safe public lookup with HTTP 403.
+          UPSTREAM_SHA="$(git ls-remote https://github.com/runelite/plugin-hub.git refs/heads/master | cut -f1)"
+          test -n "$UPSTREAM_SHA"
           if gh api "repos/jakebutler83/plugin-hub/git/ref/heads/${PLUGIN_HUB_BRANCH}" >/dev/null 2>&1; then
             gh api \
               --method PATCH \
@@ -121,7 +125,9 @@ jobs:
         run: |
           set -euo pipefail
           HEAD_REF="jakebutler83:${PLUGIN_HUB_BRANCH}"
-          PR_NUMBER="$(gh pr list --repo runelite/plugin-hub --state open --head "$HEAD_REF" --json number --jq '.[0].number // empty')"
+          # Listing public upstream pull requests does not need the fork-scoped
+          # token. Keeping this lookup anonymous avoids a fine-grained PAT 403.
+          PR_NUMBER="$(curl -fsSL "https://api.github.com/repos/runelite/plugin-hub/pulls?state=open&head=${HEAD_REF}" | jq -r '.[0].number // empty')"
           if [ -n "$PR_NUMBER" ]; then
             echo "Updated existing Plugin Hub PR #${PR_NUMBER}."
           else
