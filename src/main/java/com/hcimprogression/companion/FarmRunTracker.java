@@ -3,6 +3,7 @@ package com.hcimprogression.companion;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.runelite.api.Client;
+import net.runelite.api.WorldType;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 
@@ -14,6 +15,34 @@ import net.runelite.client.config.ConfigManager;
 public class FarmRunTracker
 {
     private static final String CONFIG_GROUP = "hcimprogression.farmruns";
+    private static final String TIME_TRACKING_GROUP = "timetracking";
+    private static final String FARM_TICK_OFFSET = "farmTickOffset";
+    private static final String FARM_TICK_OFFSET_PRECISION = "farmTickOffsetPrecision";
+
+    /**
+     * RuneLite herb varbits are seven-value crop blocks: four growing stages
+     * followed by three harvestable values. Huasca inserted a one-value gap,
+     * and goutweed uses two harvestable values, so explicit starts keep this
+     * decoder aligned with RuneLite's current Time Tracking implementation.
+     */
+    private static final HerbCropDef[] HERB_CROPS = {
+        new HerbCropDef("Guam", 4, 3),
+        new HerbCropDef("Marrentill", 11, 3),
+        new HerbCropDef("Tarromin", 18, 3),
+        new HerbCropDef("Harralander", 25, 3),
+        new HerbCropDef("Ranarr", 32, 3),
+        new HerbCropDef("Toadflax", 39, 3),
+        new HerbCropDef("Irit", 46, 3),
+        new HerbCropDef("Avantoe", 53, 3),
+        new HerbCropDef("Huasca", 60, 3),
+        new HerbCropDef("Kwuarm", 68, 3),
+        new HerbCropDef("Snapdragon", 75, 3),
+        new HerbCropDef("Cadantine", 82, 3),
+        new HerbCropDef("Lantadyme", 89, 3),
+        new HerbCropDef("Dwarf weed", 96, 3),
+        new HerbCropDef("Torstol", 103, 3),
+        new HerbCropDef("Goutweed", 192, 2)
+    };
 
     private static final PatchDef[] PATCHES = {
         new PatchDef("herb-catherby", "Catherby", "Herb", VarbitID.FARMING_TRANSMIT_A, 80),
@@ -124,6 +153,7 @@ public class FarmRunTracker
 
     private final ConfigManager configManager;
     private final Map<Integer, State> states = new LinkedHashMap<>();
+    private boolean leaguesWorld;
 
     public FarmRunTracker(ConfigManager configManager)
     {
@@ -133,6 +163,8 @@ public class FarmRunTracker
     public boolean update(Client client)
     {
         boolean changed = false;
+        leaguesWorld = client.getWorldType().contains(WorldType.SEASONAL)
+            && !client.getWorldType().contains(WorldType.DEADMAN);
         long now = System.currentTimeMillis() / 1000L;
         for (PatchDef patch : PATCHES)
         {
@@ -182,6 +214,7 @@ public class FarmRunTracker
                 patch.id,
                 patch.location,
                 patch.type,
+                patch.type,
                 status,
                 state.value,
                 state.changedAt,
@@ -194,10 +227,14 @@ public class FarmRunTracker
     {
         FarmRunSnapshot result = new FarmRunSnapshot();
         long now = System.currentTimeMillis() / 1000L;
+        Integer offsetPrecision = configManager.getRSProfileConfiguration(
+            TIME_TRACKING_GROUP, FARM_TICK_OFFSET_PRECISION, int.class);
+        Integer offsetMinutes = configManager.getRSProfileConfiguration(
+            TIME_TRACKING_GROUP, FARM_TICK_OFFSET, int.class);
         for (ProfilePatchDef patch : PROFILE_PATCHES)
         {
             String key = patch.regionId + "." + patch.varbit;
-            String stored = configManager.getRSProfileConfiguration("timetracking", key);
+            String stored = configManager.getRSProfileConfiguration(TIME_TRACKING_GROUP, key);
             if (stored == null)
             {
                 continue;
@@ -213,20 +250,40 @@ public class FarmRunTracker
             {
                 int rawState = Integer.parseInt(parts[0]);
                 long changedAt = Long.parseLong(parts[1]);
-                boolean waiting = isWaitingForPlanting(patch.type, rawState);
-                boolean harvestable = isHarvestable(patch.type, rawState);
-                long readyAt = waiting || harvestable
-                    ? 0
-                    : changedAt + durationMinutes(patch.type) * 60L;
-                String state = waiting
-                    ? "waiting"
-                    : harvestable || readyAt <= now ? "ready" : "growing";
+                String crop = patch.type;
+                boolean waiting;
+                boolean harvestable;
+                long readyAt;
+                String state;
+                if ("Herb".equalsIgnoreCase(patch.type))
+                {
+                    GrowthPrediction prediction = predictHerb(
+                        rawState, changedAt, now,
+                        offsetPrecision == null ? 0 : offsetPrecision,
+                        offsetMinutes == null ? 0 : offsetMinutes,
+                        leaguesWorld);
+                    crop = prediction.crop;
+                    state = prediction.state;
+                    readyAt = prediction.readyAt;
+                }
+                else
+                {
+                    waiting = isWaitingForPlanting(patch.type, rawState);
+                    harvestable = isHarvestable(patch.type, rawState);
+                    readyAt = waiting || harvestable
+                        ? 0
+                        : changedAt + durationMinutes(patch.type) * 60L;
+                    state = waiting
+                        ? "waiting"
+                        : harvestable || readyAt <= now ? "ready" : "growing";
+                }
                 String suffix = patch.name.isEmpty() ? "" : " - " + patch.name;
                 String id = "farm-" + slug(patch.location) + "-" + patch.regionId + "-" + patch.varbit;
                 result.getPatches().add(new FarmRunSnapshot.Patch(
                     id,
                     patch.location + suffix,
                     patch.type,
+                    crop,
                     state,
                     rawState,
                     changedAt,
@@ -238,6 +295,50 @@ public class FarmRunTracker
             }
         }
         return result;
+    }
+
+    static GrowthPrediction predictHerb(
+        int rawState,
+        long observedAt,
+        long now,
+        int offsetPrecisionMinutes,
+        int offsetMinutes,
+        boolean leaguesWorld)
+    {
+        int tickRate = leaguesWorld ? 4 : 20;
+        for (HerbCropDef crop : HERB_CROPS)
+        {
+            int growingEnd = crop.start + 3;
+            int harvestStart = crop.start + 4;
+            int harvestEnd = harvestStart + crop.harvestValues - 1;
+            if (rawState >= crop.start && rawState <= growingEnd)
+            {
+                int stage = rawState - crop.start;
+                long observedTick = tickTime(tickRate, 0, observedAt, offsetPrecisionMinutes, offsetMinutes);
+                long readyAt = tickTime(tickRate, 4 - stage, observedTick, offsetPrecisionMinutes, offsetMinutes);
+                return new GrowthPrediction(crop.name, readyAt <= now ? "ready" : "growing", readyAt);
+            }
+            if (rawState >= harvestStart && rawState <= harvestEnd)
+            {
+                return new GrowthPrediction(crop.name, "ready", 0);
+            }
+        }
+        // Weeds, empty, diseased, and dead herb states must never create a
+        // harvest reminder. They remain visible to Time Tracking but are not
+        // active crops for the Progression Path Farm Runs panel.
+        return new GrowthPrediction("", "waiting", 0);
+    }
+
+    static long tickTime(int tickRateMinutes, int ticks, long requestedTime, int offsetPrecisionMinutes, int offsetMinutes)
+    {
+        long calculatedOffsetSeconds = 0L;
+        if (offsetPrecisionMinutes >= tickRateMinutes || offsetPrecisionMinutes >= 40)
+        {
+            calculatedOffsetSeconds = (offsetMinutes % tickRateMinutes) * 60L;
+        }
+        long adjusted = requestedTime + calculatedOffsetSeconds;
+        long currentTick = adjusted - adjusted % (tickRateMinutes * 60L);
+        return currentTick + ticks * tickRateMinutes * 60L - calculatedOffsetSeconds;
     }
 
     private static boolean isHarvestable(String type, int rawState)
@@ -346,6 +447,38 @@ public class FarmRunTracker
             this.regionId = regionId;
             this.varbit = varbit;
         }
+    }
+
+    private static class HerbCropDef
+    {
+        private final String name;
+        private final int start;
+        private final int harvestValues;
+
+        private HerbCropDef(String name, int start, int harvestValues)
+        {
+            this.name = name;
+            this.start = start;
+            this.harvestValues = harvestValues;
+        }
+    }
+
+    static class GrowthPrediction
+    {
+        private final String crop;
+        private final String state;
+        private final long readyAt;
+
+        private GrowthPrediction(String crop, String state, long readyAt)
+        {
+            this.crop = crop;
+            this.state = state;
+            this.readyAt = readyAt;
+        }
+
+        String getCrop() { return crop; }
+        String getState() { return state; }
+        long getReadyAt() { return readyAt; }
     }
 
     private static class State

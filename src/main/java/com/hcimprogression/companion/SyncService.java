@@ -595,6 +595,8 @@ public class SyncService {
             patches.append('{').append("\"id\":\"").append(escape(patch.getId())).append("\",")
                 .append("\"location\":\"").append(escape(patch.getLocation())).append("\",")
                 .append("\"type\":\"").append(escape(patch.getType())).append("\",")
+                .append("\"crop\":\"").append(escape(patch.getCrop())).append("\",")
+                .append("\"source\":\"runelite-time-tracking\",")
                 .append("\"state\":\"").append(escape(patch.getState())).append("\",")
                 .append("\"rawState\":").append(patch.getRawState()).append(',')
                 .append("\"lastChangedAt\":").append(patch.getLastChangedAt()).append(',')

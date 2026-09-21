@@ -39,6 +39,7 @@ import net.runelite.api.events.StatChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.PluginMessage;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -144,6 +145,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile String tearsVisitAccountKey = "";
     private volatile long lastBirdhouseSyncAt;
     private volatile long lastFarmRunSyncAt;
+    private volatile boolean farmRunSyncPending;
     private volatile long lastSlayerSyncAt;
     private volatile String lastSlayerFingerprint = "";
     private volatile String lastProgressFingerprint = "";
@@ -195,6 +197,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         tearsVisitAccountKey = "";
         lastBirdhouseSyncAt = 0L;
         lastFarmRunSyncAt = 0L;
+        farmRunSyncPending = false;
         lastSlayerSyncAt = 0L;
         lastSlayerFingerprint = "";
         lastProgressFingerprint = "";
@@ -696,6 +699,20 @@ public class HcimProgressionCompanionPlugin extends Plugin
     }
 
     @Subscribe
+    public void onConfigChanged(ConfigChanged event)
+    {
+        // RuneLite Time Tracking owns the authoritative per-profile farming
+        // records. Queue a snapshot whenever it observes a patch, even when
+        // the raw transmit varbit transition happened during our cooldown.
+        if ("timetracking".equals(event.getGroup())
+            && event.getKey() != null
+            && event.getKey().matches("\\d+\\.\\d+"))
+        {
+            farmRunSyncPending = true;
+        }
+    }
+
+    @Subscribe
     public void onGameStateChanged(GameStateChanged event)
     {
         GameState nextState = event.getGameState();
@@ -715,6 +732,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             && !deviceToken().isEmpty())
         {
             lastFarmRunSyncAt = 0L;
+            farmRunSyncPending = false;
             requestFarmingAccountSync();
         }
 
@@ -1127,9 +1145,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
             // snapshot refresh itself must not replay account-gain alerts.
             requestAutomaticAccountSync(false);
         }
-        boolean farmRunsChanged = farmRunTracker != null && farmRunTracker.update(client);
-        if (farmRunsChanged && birdhouseNow - lastFarmRunSyncAt >= FARM_RUN_SYNC_COOLDOWN_MILLIS && !deviceToken().isEmpty())
+        if (farmRunTracker != null && farmRunTracker.update(client))
         {
+            farmRunSyncPending = true;
+        }
+        if (farmRunSyncPending
+            && birdhouseNow - lastFarmRunSyncAt >= FARM_RUN_SYNC_COOLDOWN_MILLIS
+            && !deviceToken().isEmpty())
+        {
+            farmRunSyncPending = false;
             lastFarmRunSyncAt = birdhouseNow;
             requestFarmingAccountSync();
         }
