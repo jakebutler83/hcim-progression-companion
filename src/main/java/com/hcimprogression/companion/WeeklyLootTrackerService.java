@@ -75,7 +75,7 @@ public class WeeklyLootTrackerService
                 continue;
             }
             int canonicalId = itemManager.canonicalize(item.getId());
-            int price = Math.max(0, itemManager.getItemPrice(canonicalId));
+            long price = Math.max(0L, itemManager.getItemPrice(canonicalId));
             long itemValue = safeMultiply(price, item.getQuantity());
             eventValue = safeAdd(eventValue, itemValue);
             String itemName = itemManager.getItemComposition(canonicalId).getName();

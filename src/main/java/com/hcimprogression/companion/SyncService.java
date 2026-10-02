@@ -730,7 +730,6 @@ public class SyncService {
                         ? ""
                         : closeableResponse.body().string();
                     log.debug("Response status: {}", closeableResponse.code());
-                    log.debug("Response body: {}", responseBody);
 
                     if (!closeableResponse.isSuccessful()) {
                         String retryAfter = closeableResponse.header("Retry-After");

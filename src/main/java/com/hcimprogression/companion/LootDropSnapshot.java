@@ -48,14 +48,14 @@ public class LootDropSnapshot
         private int itemId;
         private String name;
         private int quantity;
-        private int unitPrice;
+        private long unitPrice;
         private long totalValue;
 
         public LootItemSnapshot()
         {
         }
 
-        public LootItemSnapshot(int itemId, String name, int quantity, int unitPrice, long totalValue)
+        public LootItemSnapshot(int itemId, String name, int quantity, long unitPrice, long totalValue)
         {
             this.itemId = itemId;
             this.name = name;
@@ -67,7 +67,7 @@ public class LootDropSnapshot
         public int getItemId() { return itemId; }
         public String getName() { return name; }
         public int getQuantity() { return quantity; }
-        public int getUnitPrice() { return unitPrice; }
+        public long getUnitPrice() { return unitPrice; }
         public long getTotalValue() { return totalValue; }
     }
 }
