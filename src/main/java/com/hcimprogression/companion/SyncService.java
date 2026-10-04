@@ -516,6 +516,12 @@ public class SyncService {
                 + farmRunsJson(snapshot.getFarmRuns())
                 + ",\"slayer\":"
                 + slayerJson(snapshot.getSlayer())
+                + ",\"kingdom\":"
+                + kingdomJson(snapshot.getKingdom())
+                + ",\"dailyTasks\":"
+                + dailyTasksJson(snapshot.getDailyTasks())
+                + ",\"runePouch\":"
+                + runePouchJson(snapshot.getRunePouch())
                 + ",\"wornEquipment\":"
                 + wornEquipmentJson(snapshot.getWornEquipment())
                 + ",\"tcg\":"
@@ -613,6 +619,54 @@ public class SyncService {
             + snapshot.getRemaining() + ",\"points\":" + snapshot.getPoints() + ",\"streak\":"
             + snapshot.getStreak() + ",\"master\":\"" + escape(snapshot.getMaster()) + "\",\"targetId\":"
             + snapshot.getTargetId() + ",\"updatedAt\":" + snapshot.getUpdatedAt() + "}";
+    }
+
+    private String kingdomJson(KingdomSnapshot snapshot)
+    {
+        if (snapshot == null) return "null";
+        return "{\"unlocked\":" + snapshot.isUnlocked()
+            + ",\"royalTroubleComplete\":" + snapshot.isRoyalTroubleComplete()
+            + ",\"observed\":" + snapshot.isObserved()
+            + ",\"coffer\":" + snapshot.getCoffer()
+            + ",\"approval\":" + snapshot.getApproval()
+            + ",\"observedAt\":" + snapshot.getObservedAt() + "}";
+    }
+
+    private String dailyTasksJson(java.util.List<DailyTaskSnapshot> tasks)
+    {
+        StringBuilder json = new StringBuilder("[");
+        for (int index = 0; index < tasks.size(); index++)
+        {
+            if (index > 0) json.append(',');
+            DailyTaskSnapshot task = tasks.get(index);
+            json.append('{')
+                .append("\"id\":\"").append(escape(task.getId())).append("\",")
+                .append("\"name\":\"").append(escape(task.getName())).append("\",")
+                .append("\"location\":\"").append(escape(task.getLocation())).append("\",")
+                .append("\"unlocked\":").append(task.isUnlocked()).append(',')
+                .append("\"available\":").append(task.isAvailable()).append(',')
+                .append("\"claimed\":").append(task.getClaimed()).append(',')
+                .append("\"maximum\":").append(task.getMaximum())
+                .append('}');
+        }
+        return json.append(']').toString();
+    }
+
+    private String runePouchJson(RunePouchSnapshot snapshot)
+    {
+        if (snapshot == null) return "null";
+        StringBuilder runes = new StringBuilder("[");
+        for (int index = 0; index < snapshot.getRunes().size(); index++)
+        {
+            if (index > 0) runes.append(',');
+            RunePouchSnapshot.RuneSnapshot rune = snapshot.getRunes().get(index);
+            runes.append('{')
+                .append("\"itemId\":").append(rune.getItemId()).append(',')
+                .append("\"name\":\"").append(escape(rune.getName())).append("\",")
+                .append("\"quantity\":").append(rune.getQuantity())
+                .append('}');
+        }
+        return "{\"runes\":" + runes.append(']') + "}";
     }
 
     private String wornEquipmentJson(Map<String, String> equipment)

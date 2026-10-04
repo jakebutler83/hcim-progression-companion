@@ -25,6 +25,9 @@ public class AccountSnapshot
     private BirdhouseSnapshot birdhouses;
     private FarmRunSnapshot farmRuns;
     private SlayerSnapshot slayer;
+    private KingdomSnapshot kingdom;
+    private final List<DailyTaskSnapshot> dailyTasks = new ArrayList<>();
+    private RunePouchSnapshot runePouch;
     private final Map<String, String> wornEquipment = new LinkedHashMap<>();
     private TcgCollectionSnapshot tcg;
 
@@ -57,6 +60,11 @@ public class AccountSnapshot
     public void setFarmRuns(FarmRunSnapshot farmRuns) { this.farmRuns = farmRuns; }
     public SlayerSnapshot getSlayer() { return slayer; }
     public void setSlayer(SlayerSnapshot slayer) { this.slayer = slayer; }
+    public KingdomSnapshot getKingdom() { return kingdom; }
+    public void setKingdom(KingdomSnapshot kingdom) { this.kingdom = kingdom; }
+    public List<DailyTaskSnapshot> getDailyTasks() { return dailyTasks; }
+    public RunePouchSnapshot getRunePouch() { return runePouch; }
+    public void setRunePouch(RunePouchSnapshot runePouch) { this.runePouch = runePouch; }
     public Map<String, String> getWornEquipment() { return wornEquipment; }
     public TcgCollectionSnapshot getTcg() { return tcg; }
     public void setTcg(TcgCollectionSnapshot tcg) { this.tcg = tcg; }

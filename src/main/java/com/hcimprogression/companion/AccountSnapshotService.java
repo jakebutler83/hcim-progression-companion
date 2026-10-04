@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
+import net.runelite.api.EnumID;
 import net.runelite.api.Player;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
@@ -20,6 +22,22 @@ import net.runelite.client.game.ItemManager;
 
 public class AccountSnapshotService
 {
+    private static final int KINGDOM_MAX_APPROVAL = 127;
+    private static final int HERB_BOX_MAX = 15;
+    private static final int HERB_BOX_COST = 9500;
+    private static final int SAND_QUEST_COMPLETE = 160;
+    private static final int BONEMEAL_PER_DIARY = 13;
+    private static final int[] RUNE_POUCH_AMOUNT_VARBITS = {
+        VarbitID.RUNE_POUCH_QUANTITY_1, VarbitID.RUNE_POUCH_QUANTITY_2,
+        VarbitID.RUNE_POUCH_QUANTITY_3, VarbitID.RUNE_POUCH_QUANTITY_4,
+        VarbitID.RUNE_POUCH_QUANTITY_5, VarbitID.RUNE_POUCH_QUANTITY_6
+    };
+    private static final int[] RUNE_POUCH_TYPE_VARBITS = {
+        VarbitID.RUNE_POUCH_TYPE_1, VarbitID.RUNE_POUCH_TYPE_2,
+        VarbitID.RUNE_POUCH_TYPE_3, VarbitID.RUNE_POUCH_TYPE_4,
+        VarbitID.RUNE_POUCH_TYPE_5, VarbitID.RUNE_POUCH_TYPE_6
+    };
+
     public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker, FarmRunTracker farmRunTracker, ItemManager itemManager)
     {
         Player player = client.getLocalPlayer();
@@ -67,8 +85,114 @@ public class AccountSnapshotService
             snapshot.setFarmRuns(farmRunTracker.snapshot());
         }
         snapshot.setSlayer(readSlayer(client));
+        snapshot.setKingdom(readKingdom(client));
+        captureDailyTasks(client, snapshot);
+        snapshot.setRunePouch(readRunePouch(client, itemManager));
         captureWornEquipment(client, itemManager, snapshot);
         return snapshot;
+    }
+
+    private KingdomSnapshot readKingdom(Client client)
+    {
+        boolean unlocked = client.getVarpValue(VarPlayerID.MISC_QUEST) > 0;
+        boolean royalTroubleComplete = questComplete(client, Quest.ROYAL_TROUBLE);
+        int coffer = Math.max(0, client.getVarbitValue(VarbitID.MISC_COFFERS));
+        int rawApproval = Math.max(0, client.getVarbitValue(VarbitID.MISC_APPROVAL));
+        Player player = client.getLocalPlayer();
+        int regionId = player == null ? -1 : player.getWorldLocation().getRegionID();
+        boolean inKingdom = regionId == 10044 || regionId == 10300;
+        // These varbits are authoritative while the player is in Miscellania. Outside the
+        // kingdom RuneLite can retain the last client-side values, so do not refresh the
+        // observation timestamp until the character visits the region again.
+        boolean observed = unlocked && inKingdom;
+        int approval = Math.min(100, rawApproval * 100 / KINGDOM_MAX_APPROVAL);
+        return new KingdomSnapshot(unlocked, royalTroubleComplete, observed, coffer, approval,
+            observed ? System.currentTimeMillis() : 0L);
+    }
+
+    private void captureDailyTasks(Client client, AccountSnapshot snapshot)
+    {
+        int ironman = client.getVarbitValue(VarbitID.IRONMAN);
+        int herbBoxesClaimed = Math.max(0, client.getVarbitValue(VarbitID.NZONE_HERBBOXES_PURCHASED));
+        boolean herbBoxesUnlocked = ironman == 0
+            && client.getVarpValue(VarPlayerID.NZONE_REWARDPOINTS) >= HERB_BOX_COST;
+        addDailyTask(snapshot, "herb-boxes", "Herb boxes", "Nightmare Zone",
+            herbBoxesUnlocked, herbBoxesClaimed < HERB_BOX_MAX, herbBoxesClaimed, HERB_BOX_MAX);
+
+        boolean stavesUnlocked = completed(client, VarbitID.VARROCK_DIARY_EASY_COMPLETE);
+        addDailyTask(snapshot, "battlestaves", "Discounted battlestaves", "Zaff in Varrock",
+            stavesUnlocked, client.getVarbitValue(VarbitID.ZAFF_LAST_CLAIMED) == 0, 0, 1);
+
+        boolean essenceUnlocked = completed(client, VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE);
+        addDailyTask(snapshot, "essence", "Pure essence", "Wizard Cromperty",
+            essenceUnlocked, client.getVarbitValue(VarbitID.ARDOUGNE_FREE_ESSENCE) == 0, 0, 1);
+
+        boolean runesUnlocked = completed(client, VarbitID.WILDERNESS_DIARY_EASY_COMPLETE);
+        addDailyTask(snapshot, "runes", "Free random runes", "Lundail in the Mage Arena",
+            runesUnlocked, client.getVarbitValue(VarbitID.LUNDAIL_LAST_CLAIMED) == 0, 0, 1);
+
+        boolean sandUnlocked = ironman != 2
+            && client.getVarbitValue(VarbitID.HANDSAND_QUEST) >= SAND_QUEST_COMPLETE;
+        addDailyTask(snapshot, "sand", "Buckets of sand", "Bert in Yanille",
+            sandUnlocked, client.getVarbitValue(VarbitID.YANILLE_SAND_CLAIMED) == 0, 0, 1);
+
+        boolean flaxUnlocked = completed(client, VarbitID.KANDARIN_DIARY_EASY_COMPLETE);
+        addDailyTask(snapshot, "flax", "Free flax conversion", "Flax keeper in Seers' Village",
+            flaxUnlocked, client.getVarbitValue(VarbitID.SEERS_FREE_FLAX) == 0, 0, 1);
+
+        boolean arrowsUnlocked = completed(client, VarbitID.WESTERN_DIARY_EASY_COMPLETE);
+        addDailyTask(snapshot, "ogre-arrows", "Ogre arrows", "Rantz in Feldip Hills",
+            arrowsUnlocked, client.getVarbitValue(VarbitID.WESTERN_RANTZ_ARROWS) == 0, 0, 1);
+
+        boolean bonemealUnlocked = completed(client, VarbitID.MORYTANIA_DIARY_MEDIUM_COMPLETE);
+        int bonemealMaximum = bonemealUnlocked ? BONEMEAL_PER_DIARY : 0;
+        if (completed(client, VarbitID.MORYTANIA_DIARY_HARD_COMPLETE)) bonemealMaximum += BONEMEAL_PER_DIARY;
+        if (completed(client, VarbitID.MORYTANIA_DIARY_ELITE_COMPLETE)) bonemealMaximum += BONEMEAL_PER_DIARY;
+        int bonemealClaimed = Math.max(0, client.getVarbitValue(VarbitID.MORYTANIA_SLIME_CLAIMED));
+        addDailyTask(snapshot, "bonemeal-slime", "Bonemeal and buckets of slime", "Robin in Port Phasmatys",
+            bonemealUnlocked, bonemealClaimed < bonemealMaximum, bonemealClaimed, bonemealMaximum);
+
+        boolean dynamiteUnlocked = completed(client, VarbitID.KOUREND_DIARY_MEDIUM_COMPLETE);
+        addDailyTask(snapshot, "dynamite", "Free dynamite", "Thirus in Lovakengj",
+            dynamiteUnlocked, client.getVarbitValue(VarbitID.KOUREND_FREE_DYNAMITE) == 0, 0, 1);
+    }
+
+    private void addDailyTask(AccountSnapshot snapshot, String id, String name, String location,
+        boolean unlocked, boolean available, int claimed, int maximum)
+    {
+        snapshot.getDailyTasks().add(new DailyTaskSnapshot(id, name, location, unlocked,
+            unlocked && available, Math.max(0, claimed), Math.max(0, maximum)));
+    }
+
+    private RunePouchSnapshot readRunePouch(Client client, ItemManager itemManager)
+    {
+        RunePouchSnapshot snapshot = new RunePouchSnapshot();
+        if (itemManager == null) return snapshot;
+        EnumComposition runePouchRunes = client.getEnum(EnumID.RUNEPOUCH_RUNE);
+        if (runePouchRunes == null) return snapshot;
+        for (int index = 0; index < RUNE_POUCH_TYPE_VARBITS.length; index++)
+        {
+            int quantity = Math.max(0, client.getVarbitValue(RUNE_POUCH_AMOUNT_VARBITS[index]));
+            int runeType = client.getVarbitValue(RUNE_POUCH_TYPE_VARBITS[index]);
+            int itemId = runePouchRunes.getIntValue(runeType);
+            if (runeType <= 0 || itemId <= 0 || quantity <= 0) continue;
+            String name = itemManager.getItemComposition(itemId).getName();
+            if (name == null || name.isEmpty()) continue;
+            snapshot.getRunes().add(new RunePouchSnapshot.RuneSnapshot(itemId, name, quantity));
+        }
+        return snapshot;
+    }
+
+    private boolean questComplete(Client client, Quest quest)
+    {
+        try
+        {
+            return quest.getState(client) == QuestState.FINISHED;
+        }
+        catch (RuntimeException ignored)
+        {
+            return false;
+        }
     }
 
     private void captureWornEquipment(Client client, ItemManager itemManager, AccountSnapshot snapshot)

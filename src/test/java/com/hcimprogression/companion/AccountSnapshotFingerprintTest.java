@@ -16,6 +16,8 @@ public class AccountSnapshotFingerprintTest
     {
         AccountSnapshot first = snapshot(100L, 200L, "Blue dragons", 42);
         AccountSnapshot second = snapshot(101L, 201L, "Blue dragons", 42);
+        first.setKingdom(new KingdomSnapshot(true, true, true, 2_000_000, 95, 300L));
+        second.setKingdom(new KingdomSnapshot(true, true, true, 2_000_000, 95, 301L));
 
         assertEquals(
             AccountSnapshotFingerprint.create(gson, first),

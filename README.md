@@ -10,6 +10,9 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - One-click account snapshot syncing
 - Optional batched automatic account snapshots after skill, quest, diary, or collection-log changes
 - Farm-run snapshots and harvest reminders derived from RuneLite Time Tracking's per-profile patch states and farming-tick calibration
+- Read-only Kingdom of Miscellania coffer and approval snapshots using RuneLite's built-in kingdom state
+- Daily reward availability from RuneLite's Daily Task Indicator sources
+- Exact rune-pouch contents for character-specific supply and loadout guidance
 - Skill level progression updates
 - Official hiscore boss KC syncing for the website Luck Tracker
 - Brutus KC support through RuneLite's current official hiscore catalog

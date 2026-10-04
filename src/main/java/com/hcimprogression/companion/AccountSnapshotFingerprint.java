@@ -32,6 +32,7 @@ final class AccountSnapshotFingerprint
         JsonObject root = serialized.getAsJsonObject();
         removeCaptureTimestamp(root, "slayer");
         removeCaptureTimestamp(root, "tcg");
+        removeCaptureTimestamp(root, "kingdom", "observedAt");
         return sha256(gson.toJson(root));
     }
 
@@ -42,10 +43,15 @@ final class AccountSnapshotFingerprint
 
     private static void removeCaptureTimestamp(JsonObject root, String property)
     {
+        removeCaptureTimestamp(root, property, "updatedAt");
+    }
+
+    private static void removeCaptureTimestamp(JsonObject root, String property, String timestampProperty)
+    {
         JsonElement value = root.get(property);
         if (value != null && value.isJsonObject())
         {
-            value.getAsJsonObject().remove("updatedAt");
+            value.getAsJsonObject().remove(timestampProperty);
         }
     }
 
