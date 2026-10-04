@@ -731,6 +731,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
             && config.automaticAccountSyncEnabled()
             && !deviceToken().isEmpty())
         {
+            // A login must refresh account-owned values such as membership days
+            // even when the previous character synced less than five minutes
+            // ago. The normal cooldown resumes immediately after this upload.
+            lastAutomaticAccountSyncAt = 0L;
             lastFarmRunSyncAt = 0L;
             farmRunSyncPending = false;
             requestFarmingAccountSync();
