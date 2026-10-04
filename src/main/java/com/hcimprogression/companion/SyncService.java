@@ -494,6 +494,9 @@ public class SyncService {
                 + "\"questPoints\":"
                 + snapshot.getQuestPoints()
                 + ","
+                + "\"membershipDays\":"
+                + snapshot.getMembershipDays()
+                + ","
                 + "\"lootTrackingEnabled\":"
                 + snapshot.isLootTrackingEnabled()
                 + ","

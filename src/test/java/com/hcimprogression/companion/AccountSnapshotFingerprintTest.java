@@ -31,6 +31,9 @@ public class AccountSnapshotFingerprintTest
         AccountSnapshot first = snapshot(100L, 200L, "Blue dragons", 42);
         AccountSnapshot differentTask = snapshot(100L, 200L, "Shades", 42);
         AccountSnapshot differentCards = snapshot(100L, 200L, "Blue dragons", 43);
+        AccountSnapshot differentMembership = snapshot(100L, 200L, "Blue dragons", 42);
+        first.setMembershipDays(30);
+        differentMembership.setMembershipDays(29);
 
         assertNotEquals(
             AccountSnapshotFingerprint.create(gson, first),
@@ -39,6 +42,10 @@ public class AccountSnapshotFingerprintTest
         assertNotEquals(
             AccountSnapshotFingerprint.create(gson, first),
             AccountSnapshotFingerprint.create(gson, differentCards)
+        );
+        assertNotEquals(
+            AccountSnapshotFingerprint.create(gson, first),
+            AccountSnapshotFingerprint.create(gson, differentMembership)
         );
     }
 

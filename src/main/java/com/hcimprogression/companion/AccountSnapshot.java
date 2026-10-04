@@ -9,6 +9,7 @@ public class AccountSnapshot
 {
     private String playerName;
     private int questPoints;
+    private int membershipDays;
     private final Map<String, SkillSnapshot> skills = new LinkedHashMap<>();
     private List<String> completedQuests;
     private final Map<String, Integer> clueCounts = new LinkedHashMap<>();
@@ -35,6 +36,8 @@ public class AccountSnapshot
     public void setPlayerName(String playerName) { this.playerName = playerName; }
     public int getQuestPoints() { return questPoints; }
     public void setQuestPoints(int questPoints) { this.questPoints = questPoints; }
+    public int getMembershipDays() { return membershipDays; }
+    public void setMembershipDays(int membershipDays) { this.membershipDays = membershipDays; }
     public Map<String, SkillSnapshot> getSkills() { return skills; }
     public List<String> getCompletedQuests() { return completedQuests; }
     public void setCompletedQuests(List<String> completedQuests) { this.completedQuests = completedQuests; }

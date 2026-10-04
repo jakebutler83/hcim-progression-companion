@@ -46,6 +46,7 @@ public class AccountSnapshotService
         AccountSnapshot snapshot = new AccountSnapshot();
         snapshot.setPlayerName(player.getName());
         snapshot.setQuestPoints(Math.max(0, client.getVarpValue(VarPlayer.QUEST_POINTS)));
+        snapshot.setMembershipDays(Math.max(0, client.getVarpValue(VarPlayer.MEMBERSHIP_DAYS)));
 
         for (Skill skill : Skill.values())
         {
