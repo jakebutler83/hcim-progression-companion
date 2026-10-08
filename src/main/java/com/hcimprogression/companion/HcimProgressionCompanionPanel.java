@@ -21,6 +21,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.util.LinkBrowser;
 
 public class HcimProgressionCompanionPanel extends PluginPanel
 {
@@ -33,6 +34,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private static final Color CARD_BACKGROUND = new Color(31, 31, 31);
     private static final Color INPUT_BACKGROUND = new Color(24, 24, 24);
     private static final Color DIVIDER = new Color(58, 58, 58);
+    private static final String WEBSITE_URL = "https://progressionpath.netlify.app";
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
 
     private final JLabel statusValue = new JLabel("Waiting for login");
@@ -63,7 +65,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel coordinatesValue = new JLabel("—");
     private final JLabel planeValue = new JLabel("—");
     private final JTextField linkCodeField = new JTextField();
-    private final JButton connectButton = new JButton("Connect");
+    private final JButton connectButton = new JButton("Link Account");
+    private final JButton websiteButton = new JButton("Open Progression Path Website");
     private final JButton accountSyncButton = new JButton("Sync Account Now");
     private boolean accountSyncCooldown;
 
@@ -73,14 +76,32 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         setBackground(ColorScheme.DARK_GRAY_COLOR);
 
         JPanel content = createVerticalPanel(ColorScheme.DARK_GRAY_COLOR);
-        content.setBorder(BorderFactory.createEmptyBorder(12, 8, 14, 8));
+        content.setBorder(BorderFactory.createEmptyBorder(10, 8, 14, 8));
 
         content.add(createHeader());
-        content.add(Box.createVerticalStrut(10));
+        content.add(Box.createVerticalStrut(8));
 
         JPanel connectionBody = createVerticalPanel(CARD_BACKGROUND);
+        connectionBody.add(createHint("New here? Link this RuneScape character to your private Progression Path account."));
+        connectionBody.add(Box.createVerticalStrut(7));
+        connectionBody.add(createStep("1", "Open the website and sign in"));
+        connectionBody.add(createStep("2", "Go to Settings → RuneLite Connection"));
+        connectionBody.add(createStep("3", "Generate a code and enter it below"));
+        connectionBody.add(Box.createVerticalStrut(7));
+
+        styleButton(websiteButton, false);
+        websiteButton.setToolTipText(WEBSITE_URL);
+        websiteButton.addActionListener(e -> LinkBrowser.browse(WEBSITE_URL));
+        connectionBody.add(websiteButton);
+        JLabel websiteAddress = new JLabel(WEBSITE_URL.replace("https://", ""));
+        websiteAddress.setForeground(BLUE);
+        websiteAddress.setFont(websiteAddress.getFont().deriveFont(9f));
+        websiteAddress.setAlignmentX(LEFT_ALIGNMENT);
+        connectionBody.add(Box.createVerticalStrut(3));
+        connectionBody.add(websiteAddress);
+        connectionBody.add(Box.createVerticalStrut(9));
         connectionBody.add(createRow("Link status", linkValue));
-        connectionBody.add(Box.createVerticalStrut(8));
+        connectionBody.add(Box.createVerticalStrut(5));
 
         linkCodeField.setToolTipText("One-time code generated in Website Settings");
         linkCodeField.setBackground(INPUT_BACKGROUND);
@@ -107,8 +128,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         linkCodeField.addActionListener(e -> submitLink.run());
         connectionBody.add(connectButton);
         connectionBody.add(Box.createVerticalStrut(6));
-        connectionBody.add(createHint("Paste the one-time code from Website Settings."));
-        content.add(createCard("WEBSITE CONNECTION", BLUE, connectionBody));
+        connectionBody.add(createHint("Codes are one-time use and connect only the character logged into this RuneLite client."));
+        content.add(createCollapsibleCard("LINK TO WEBSITE", BLUE, connectionBody, true));
         content.add(Box.createVerticalStrut(8));
 
         JPanel accountBody = createVerticalPanel(CARD_BACKGROUND);
@@ -133,11 +154,14 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountBody.add(metrics);
         accountBody.add(Box.createVerticalStrut(5));
         accountBody.add(createRow("Last sync", accountSyncTimeValue));
-        accountBody.add(createRow("Last attempt", accountSyncAttemptValue));
-        accountBody.add(createRow("Last error", accountSyncErrorValue));
         accountBody.add(createRow("Collection Log", collectionCaptureValue));
-        accountBody.add(createRow("Clue totals", clueCountsValue));
-        accountBody.add(createRow("OSRS TCG", tcgValue));
+        JPanel syncDetails = createVerticalPanel(CARD_BACKGROUND);
+        syncDetails.add(createRow("Last attempt", accountSyncAttemptValue));
+        syncDetails.add(createRow("Last error", accountSyncErrorValue));
+        syncDetails.add(createRow("Clue totals", clueCountsValue));
+        syncDetails.add(createRow("OSRS TCG", tcgValue));
+        accountBody.add(Box.createVerticalStrut(4));
+        accountBody.add(createCollapsibleCard("SYNC DETAILS", MUTED, syncDetails, false));
         accountBody.add(Box.createVerticalStrut(8));
 
         styleButton(accountSyncButton, true);
@@ -155,24 +179,23 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         liveSyncBody.add(createRow("Clan events", clanEventsValue));
         liveSyncBody.add(createRow("Group storage", groupStorageValue));
         liveSyncBody.add(createRow("Personal bank", personalBankValue));
-        content.add(createCollapsibleCard("LIVE SYNC", GOLD, liveSyncBody, true));
+        content.add(createCollapsibleCard("LIVE SYNC", GOLD, liveSyncBody, false));
         content.add(Box.createVerticalStrut(8));
 
-        JPanel characterBody = createVerticalPanel(CARD_BACKGROUND);
-        characterBody.add(createRow("Player", playerValue));
-        characterBody.add(createRow("World", worldValue));
-        characterBody.add(createRow("Map region", regionValue));
-        characterBody.add(createRow("Coordinates", coordinatesValue));
-        characterBody.add(createRow("Plane", planeValue));
-        content.add(createCollapsibleCard("CHARACTER DETAILS", BLUE, characterBody, false));
-        content.add(Box.createVerticalStrut(8));
-
-        JPanel socialBody = createVerticalPanel(CARD_BACKGROUND);
-        socialBody.add(createRow("Region", socialRegionValue));
-        socialBody.add(createRow("Activity", socialActivityValue));
-        socialBody.add(createRow("Combat level", socialCombatValue));
-        socialBody.add(createRow("Equipment slots", socialGearValue));
-        content.add(createCollapsibleCard("SOCIAL DETAILS", new Color(177, 126, 216), socialBody, false));
+        JPanel detailsBody = createVerticalPanel(CARD_BACKGROUND);
+        detailsBody.add(createSubheading("CHARACTER"));
+        detailsBody.add(createRow("Player", playerValue));
+        detailsBody.add(createRow("World", worldValue));
+        detailsBody.add(createRow("Map region", regionValue));
+        detailsBody.add(createRow("Coordinates", coordinatesValue));
+        detailsBody.add(createRow("Plane", planeValue));
+        detailsBody.add(Box.createVerticalStrut(6));
+        detailsBody.add(createSubheading("SOCIAL"));
+        detailsBody.add(createRow("Region", socialRegionValue));
+        detailsBody.add(createRow("Activity", socialActivityValue));
+        detailsBody.add(createRow("Combat level", socialCombatValue));
+        detailsBody.add(createRow("Equipment slots", socialGearValue));
+        content.add(createCollapsibleCard("MORE DETAILS", new Color(177, 126, 216), detailsBody, false));
         content.add(Box.createVerticalStrut(9));
         content.add(createHint("Only features enabled in the plugin settings are shared."));
 
@@ -189,7 +212,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         title.setAlignmentX(LEFT_ALIGNMENT);
         header.add(title);
 
-        JLabel subtitle = new JLabel("Progression Path companion");
+        JLabel subtitle = new JLabel("Your RuneScape account, synced to the web");
         subtitle.setForeground(MUTED);
         subtitle.setFont(subtitle.getFont().deriveFont(11f));
         subtitle.setAlignmentX(LEFT_ALIGNMENT);
@@ -299,6 +322,38 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         metric.add(Box.createVerticalStrut(2));
         metric.add(label);
         return metric;
+    }
+
+    private JPanel createStep(String number, String text)
+    {
+        JPanel step = new JPanel(new BorderLayout(7, 0));
+        step.setBackground(CARD_BACKGROUND);
+        step.setAlignmentX(LEFT_ALIGNMENT);
+
+        JLabel badge = new JLabel(number, SwingConstants.CENTER);
+        badge.setOpaque(true);
+        badge.setBackground(new Color(18, 44, 59));
+        badge.setForeground(BLUE);
+        badge.setFont(badge.getFont().deriveFont(Font.BOLD, 10f));
+        badge.setPreferredSize(new Dimension(22, 22));
+
+        JLabel copy = new JLabel(text);
+        copy.setForeground(new Color(205, 205, 205));
+        copy.setFont(copy.getFont().deriveFont(10f));
+        step.add(badge, BorderLayout.WEST);
+        step.add(copy, BorderLayout.CENTER);
+        step.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        return step;
+    }
+
+    private JLabel createSubheading(String text)
+    {
+        JLabel label = new JLabel(text);
+        label.setForeground(MUTED);
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 9f));
+        label.setAlignmentX(LEFT_ALIGNMENT);
+        label.setBorder(BorderFactory.createEmptyBorder(2, 0, 3, 0));
+        return label;
     }
 
     private JLabel createHint(String text)

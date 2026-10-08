@@ -317,8 +317,20 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void linkCompanion(String code)
     {
+        String normalizedCode = code == null
+            ? ""
+            : code.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+        if (normalizedCode.length() != 8)
+        {
+            if (panel != null)
+            {
+                panel.showLinkError("Enter the complete 8-character link code");
+            }
+            return;
+        }
+
         if (panel != null) panel.setLinking(true);
-        syncService.exchangeCode(config.apiBaseUrl(), code, (result, error) ->
+        syncService.exchangeCode(config.apiBaseUrl(), normalizedCode, (result, error) ->
             SwingUtilities.invokeLater(() -> {
                 if (panel == null) return;
                 if (error != null || result == null) {

@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -22,6 +24,7 @@ import okhttp3.Response;
 @Slf4j
 public class SyncService {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    private static final long LINK_TIMEOUT_SECONDS = 20L;
     private final OkHttpClient httpClient;
     private final Gson gson;
 
@@ -41,7 +44,15 @@ public class SyncService {
 
         String json = "{\"code\":\"" + escape(normalized) + "\"}";
 
-        post(apiBaseUrl, "companion-link-exchange", null, json)
+        CompletableFuture<String> exchange;
+        try {
+            exchange = post(apiBaseUrl, "companion-link-exchange", null, json);
+        } catch (RuntimeException error) {
+            callback.accept(null, friendly(error));
+            return;
+        }
+
+        exchange.orTimeout(LINK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .whenComplete((body, error) ->
                 {
                     if (error != null) {
@@ -907,6 +918,10 @@ public class SyncService {
 
         while (cause.getCause() != null) {
             cause = cause.getCause();
+        }
+
+        if (cause instanceof TimeoutException) {
+            return "Connection timed out. Reset Website API URL to its default in the plugin settings, then try a fresh link code.";
         }
 
         String message = cause.getMessage();
