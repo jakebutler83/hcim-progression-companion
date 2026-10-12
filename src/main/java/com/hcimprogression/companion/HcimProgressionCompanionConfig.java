@@ -148,6 +148,15 @@ public interface HcimProgressionCompanionConfig extends Config
     )
     default boolean pinnedGoalEnabled() { return false; }
 
+    @ConfigItem(keyName = "routineRoutesEnabled", name = "Local route helper",
+        description = "User-stepped packing lists and routes for farm and birdhouse runs. No automatic movement, clicks or timer changes.", position = 61)
+    default boolean routineRoutesEnabled() { return false; }
+
+    @ConfigItem(keyName = "routineRoutesSyncEnabled", name = "Route setup sync",
+        description = "Enables manual Load from website and Save to website for this character's farm and birdhouse route setups. Local route editing needs no network access.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers", position = 62)
+    default boolean routineRoutesSyncEnabled() { return false; }
+
     @ConfigItem(
         keyName = "progressionDesktopNotifications",
         name = "Also notify outside the game",

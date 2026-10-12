@@ -108,6 +108,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private final ProgressionFeedback progressionFeedback = new ProgressionFeedback();
     private ProgressionOverlay progressionOverlay;
+    private RoutineRouteHelper routeHelper;
     private boolean feedbackRunning;
     private long feedbackRevision;
     private long nextGoalPollAt;
@@ -188,7 +189,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         feedbackRunning = true;
         lastFeedbackPanelStatus = "";
         progressionFeedback.session("");
-        progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client);
+        routeHelper = new RoutineRouteHelper(configManager, config, syncService, gson, clientThread);
+        progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client, routeHelper);
         overlayManager.add(progressionOverlay);
         tickCounter = 0;
         long now = System.currentTimeMillis();
@@ -236,7 +238,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastClueRewardCapturedAt = 0L;
         lastBarrowsRewardFingerprint = "";
         lastBarrowsRewardCapturedAt = 0L;
-        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder);
+        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel());
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
         tcgCollectionSnapshotService = new TcgCollectionSnapshotService(eventBus);
@@ -284,6 +286,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     protected void shutDown()
     {
         feedbackRunning = false;
+        if (routeHelper != null) routeHelper.reset();
+        routeHelper = null;
         progressionFeedback.session("");
         if (progressionOverlay != null) overlayManager.remove(progressionOverlay);
         progressionOverlay = null;
@@ -781,6 +785,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (farmRunTracker != null) farmRunTracker.reset();
         routineReminderTracker.reset();
         progressionFeedback.session("");
+        if (routeHelper != null) routeHelper.reset();
     }
 
     @Subscribe
@@ -789,6 +794,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         GameState nextState = event.getGameState();
         if (isLoggedOutState(nextState)) progressionFeedback.session("");
         if (isLoggedOutState(nextState)) routineReminderTracker.reset();
+        if (isLoggedOutState(nextState) && routeHelper != null) routeHelper.reset();
         if (isLoggedOutState(nextState)) updateFeedbackPanel();
         boolean sessionStarted = nextState == GameState.LOGGED_IN && !accountSessionActive;
         if (sessionStarted)
@@ -1956,6 +1962,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void refreshFeedbackSession()
     {
+        if (routeHelper != null) routeHelper.session(
+            client.getGameState() == GameState.LOGGED_IN ? currentPlayerName() : "", deviceToken(), config.apiBaseUrl());
         progressionFeedback.categories(config.questCompletionPopups(), config.diaryCompletionPopups(), config.milestoneCompletionPopups());
         String name = currentPlayerName();
         String token = deviceToken();
@@ -2027,7 +2035,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 {
                     goalPollFailures = 0;
                     goalReadStatus = goal == null ? "No task pinned. Use Pin next task in RuneLite on your website dashboard."
-                        : (goal.done >= goal.total ? "Completed: " : "Pinned: ") + ProgressionFeedback.clean(goal.title);
+                        : (!goal.activity && goal.done >= goal.total ? "Completed: " : "Pinned: ") + ProgressionFeedback.clean(goal.title);
                 }
                 updateFeedbackPanel();
             }));

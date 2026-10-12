@@ -98,6 +98,29 @@ public class SyncService {
         catch (RuntimeException error) { callback.accept(null, friendly(error)); }
     }
 
+    void syncRoutineRoute(String apiBaseUrl, String token, String playerName, String kind,
+        RoutineRoutePlan plan, BiConsumer<RoutineRoutePlan, String> callback)
+    {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("playerName", playerName); payload.put("kind", kind);
+        payload.put("action", plan == null ? "get" : "save");
+        if (plan != null) { payload.put("plan", plan); payload.put("expectedRevision", plan.revision); }
+        try {
+            post(apiBaseUrl, "companion-route-plan", token, gson.toJson(payload))
+                .orTimeout(20, TimeUnit.SECONDS).whenComplete((body, error) -> {
+                    if (error != null) { callback.accept(null, friendly(error)); return; }
+                    try {
+                        RoutineRoutePlan.Response response = gson.fromJson(body, RoutineRoutePlan.Response.class);
+                        if (response == null || !response.ok || (plan != null && response.plan == null)
+                            || (response.plan != null && (!kind.equals(response.plan.kind) || !response.plan.valid()))) {
+                            callback.accept(null, "Invalid route response. Local edits were kept."); return;
+                        }
+                        callback.accept(response.plan, null);
+                    } catch (RuntimeException malformed) { callback.accept(null, "Invalid route response. Local edits were kept."); }
+                });
+        } catch (RuntimeException error) { callback.accept(null, friendly(error)); }
+    }
+
     public void syncLocation(
             String apiBaseUrl,
             String token,

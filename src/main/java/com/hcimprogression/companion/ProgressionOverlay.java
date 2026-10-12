@@ -15,15 +15,17 @@ final class ProgressionOverlay extends OverlayPanel
     private final ProgressionFeedback feedback;
     private final HcimProgressionCompanionConfig config;
     private final Client client;
+    private final RoutineRouteHelper routes;
     private static final Color GOLD = new Color(235, 194, 93);
 
     ProgressionOverlay(HcimProgressionCompanionPlugin plugin, ProgressionFeedback feedback,
-        HcimProgressionCompanionConfig config, Client client)
+        HcimProgressionCompanionConfig config, Client client, RoutineRouteHelper routes)
     {
         super(plugin);
         this.feedback = feedback;
         this.config = config;
         this.client = client;
+        this.routes = routes;
         setPosition(OverlayPosition.TOP_LEFT);
         panelComponent.setPreferredSize(new Dimension(240, 0));
     }
@@ -35,7 +37,8 @@ final class ProgressionOverlay extends OverlayPanel
         ProgressionFeedback.View view = feedback.view(System.currentTimeMillis());
         boolean popup = !view.popup.isEmpty() && (view.routinePopup ? config.routineRemindersEnabled() : config.progressionPopupsEnabled());
         boolean goal = config.pinnedGoalEnabled() && view.goal != null;
-        if (!popup && !goal) return null;
+        RoutineRouteHelper.View route = routes == null ? null : routes.view();
+        if (!popup && !goal && route == null) return null;
         panelComponent.getChildren().clear();
         panelComponent.getChildren().add(TitleComponent.builder().text("Progression Path").color(GOLD).build());
         if (popup)
@@ -45,9 +48,14 @@ final class ProgressionOverlay extends OverlayPanel
         }
         if (goal)
         {
-            line(view.goal.done == view.goal.total ? "Pinned task complete" : "Your pinned task", GOLD);
+            line(view.goal.activity ? "Your pinned activity" : view.goal.done == view.goal.total ? "Pinned task complete" : "Your pinned task", GOLD);
             wrapped(view.goal.title);
-            line(view.goal.done + " / " + view.goal.total + " steps", Color.LIGHT_GRAY);
+            if (!view.goal.activity) line(view.goal.done + " / " + view.goal.total + " steps", Color.LIGHT_GRAY);
+        }
+        if (route != null) {
+            line(route.title, GOLD);
+            wrapped(route.text);
+            line("Use Route Helper: Back / Next", Color.LIGHT_GRAY);
         }
         return super.render(graphics);
     }

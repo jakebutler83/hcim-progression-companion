@@ -111,12 +111,13 @@ final class ProgressionFeedback
     synchronized void goal(long revision, Goal next, long now)
     {
         if (!current(revision)) return;
-        if (next == null || clean(next.title).isEmpty() || next.total < 1 || next.total > 40)
+        if (next == null || clean(next.title).isEmpty() || (!next.activity && next.total < 1) || next.total < 0 || next.total > 40)
         {
             goal = null;
             return;
         }
         goal = new Goal(clean(next.title), Math.max(0, Math.min(next.done, next.total)), next.total);
+        goal.activity = next.activity;
         goalUntil = now + 90_000L;
     }
 
@@ -156,6 +157,7 @@ final class ProgressionFeedback
         String title;
         int done;
         int total;
+        boolean activity;
         Goal(String title, int done, int total) { this.title = title; this.done = done; this.total = total; }
     }
 

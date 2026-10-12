@@ -154,6 +154,35 @@ Only the user may operate/log into RuneScape; do not automate in-game tests.
 
 Automated tests/compilation do not establish that these behaviors work in-game.
 
+## Personal task pins and routine routes
+
+- Website Journey and Home checklist tasks have a small pin button, including
+  minigame goals. Boss Hub cards have separate activity pins. A boss activity is
+  a focus label, not an invented completion counter or combat helper.
+- Enable **Local route helper** and open the sidebar's **ROUTE HELPER** card.
+  Farm and birdhouse setups have editable packing lists and ordered stops.
+  Review your quests, levels, teleports and supplies before starting. **Next**,
+  **Back**, **Stop** and **Start / restart route** are manual checklist controls.
+  No game inputs, pathfinding, scene indicators or crop-timer changes occur.
+- Local setups are saved per RuneScape profile and character. Separately enable
+  **Route setup sync** (third-party opt-in), link the character, and choose
+  **Load from website** before **Save to website**. A stale revision is rejected
+  rather than overwriting another device's edits. Network errors retain local
+  edits. These routes live privately under the permanent website character ID.
+- On the website, edit the matching route in Farm Runs or Birdhouse Tracker.
+  Starter birdhouse logs use synced Hunter/Crafting levels when available;
+  first-run clockworks and repeat-run reuse are distinguished. Travel methods
+  are suggestions requiring actual unlocks, not proof of access.
+
+Manual acceptance test: pin a different Journey task and a boss activity; verify
+the correct in-game goal and unpin. Edit one farm setup locally, start it, use
+Back/Next and Stop, then restart the four-stop birdhouse route. Load/edit/upload
+and check the website reflects this character's route. Edit it on the website
+and try a stale plugin upload: it must reject while retaining local edits. Log
+out and switch characters/RS profiles during a request; no old route or response
+may appear on the new character. All new options default off. Public Plugin Hub
+release still requires user in-game confirmation and maintainer review.
+
 ## Plugin Hub releases
 
 Pushing source changes to `main` updates this repository but does not immediately update the public Plugin Hub build. Publish a GitHub release, or manually run the `Submit Plugin Hub release` workflow, when a tested companion version is ready. The workflow opens or refreshes a Plugin Hub pull request for RuneLite maintainer review, so ordinary development commits do not bypass the public release process.
