@@ -131,6 +131,72 @@ public interface HcimProgressionCompanionConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "progressionPopupsEnabled",
+        name = "Progression completion pop-ups",
+        description = "Shows newly completed quests, diary tiers, and supported milestones after an automatic game-event sync. Requires Automatic account snapshots. Login and manual refreshes stay silent.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
+        position = 11
+    )
+    default boolean progressionPopupsEnabled() { return false; }
+
+    @ConfigItem(
+        keyName = "pinnedGoalEnabled",
+        name = "Pinned website goal",
+        description = "Shows the task pinned on your Progression Path dashboard. Fetches this character's goal about once a minute while logged in. Does not control gameplay.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
+        position = 12
+    )
+    default boolean pinnedGoalEnabled() { return false; }
+
+    @ConfigItem(
+        keyName = "progressionDesktopNotifications",
+        name = "Also notify outside the game",
+        description = "Sends completion pop-ups through RuneLite's normal notification settings (sound, tray, and focus preferences). Requires Progression completion pop-ups.",
+        position = 13
+    )
+    default boolean progressionDesktopNotifications() { return false; }
+
+    @ConfigItem(
+        keyName = "routineRemindersEnabled",
+        name = "Local farm / birdhouse reminders",
+        description = "Shows a small reminder when RuneLite Time Tracking records change from growing to ready. Local only: no website link, upload, or automatic snapshots required. Existing ready timers at login stay silent.",
+        position = 14
+    )
+    default boolean routineRemindersEnabled() { return false; }
+
+    @ConfigItem(
+        keyName = "routineDesktopNotifications",
+        name = "Also notify for ready routines",
+        description = "Forwards local routine reminders through RuneLite's notification settings. Leave off if Time Tracking already sends these notifications to avoid duplicate sounds.",
+        position = 15
+    )
+    default boolean routineDesktopNotifications() { return false; }
+
+    @ConfigItem(
+        keyName = "questCompletionPopups",
+        name = "Quest completion pop-ups",
+        description = "Local filter for Progression completion pop-ups. Muted quests still appear in Recent completions while the master option is enabled. Does not enable uploads.",
+        position = 16
+    )
+    default boolean questCompletionPopups() { return true; }
+
+    @ConfigItem(
+        keyName = "diaryCompletionPopups",
+        name = "Diary completion pop-ups",
+        description = "Local filter for Progression completion pop-ups. Muted diary tiers still appear in Recent completions. Does not enable uploads.",
+        position = 17
+    )
+    default boolean diaryCompletionPopups() { return true; }
+
+    @ConfigItem(
+        keyName = "milestoneCompletionPopups",
+        name = "Milestone completion pop-ups",
+        description = "Local filter for supported skill, clue and boss milestone pop-ups. Muted milestones still appear in Recent completions. Does not enable uploads.",
+        position = 18
+    )
+    default boolean milestoneCompletionPopups() { return true; }
+
+    @ConfigItem(
         keyName = "apiBaseUrl",
         name = "Website API URL",
         description = "Progression Path API root. Keep the default unless your website administrator provides a dedicated Cloud Run URL.",

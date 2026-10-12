@@ -77,6 +77,27 @@ public class SyncService {
                 });
     }
 
+    public void fetchPinnedGoal(String apiBaseUrl, String token, String playerName,
+        BiConsumer<ProgressionFeedback.Goal, String> callback)
+    {
+        try
+        {
+            post(apiBaseUrl, "companion-goal", token,
+                "{\"playerName\":\"" + escape(playerName) + "\"}")
+                .orTimeout(20, TimeUnit.SECONDS).whenComplete((body, error) -> {
+                    if (error != null) { callback.accept(null, friendly(error)); return; }
+                    try
+                    {
+                        ProgressionFeedback.Response result = gson.fromJson(body, ProgressionFeedback.Response.class);
+                        if (result == null || !result.ok) callback.accept(null, "Could not load pinned goal");
+                        else callback.accept(result.goal, null);
+                    }
+                    catch (RuntimeException malformed) { callback.accept(null, "Invalid pinned goal response"); }
+                });
+        }
+        catch (RuntimeException error) { callback.accept(null, friendly(error)); }
+    }
+
     public void syncLocation(
             String apiBaseUrl,
             String token,
@@ -575,7 +596,8 @@ public class SyncService {
                             new AccountSyncResult(
                                     intValue(body, "questUpdates"),
                                     intValue(body, "taskUpdates"),
-                                    intValue(body, "bossKillCountCount")
+                                    intValue(body, "bossKillCountCount"),
+                                    completionEvents(body)
                             ),
                             null
                     );
@@ -931,18 +953,31 @@ public class SyncService {
                 : message;
     }
 
+    private java.util.List<ProgressionFeedback.Event> completionEvents(String body)
+    {
+        try
+        {
+            ProgressionFeedback.Response response = gson.fromJson(body, ProgressionFeedback.Response.class);
+            return response == null ? java.util.Collections.emptyList() : response.completions;
+        }
+        catch (RuntimeException error) { return java.util.Collections.emptyList(); }
+    }
+
     public static class AccountSyncResult {
         private final int questUpdates;
         private final int taskUpdates;
         private final int bossKillCountCount;
+        private final java.util.List<ProgressionFeedback.Event> completions;
 
         public AccountSyncResult(
                 int questUpdates,
                 int taskUpdates,
-                int bossKillCountCount) {
+                int bossKillCountCount,
+                java.util.List<ProgressionFeedback.Event> completions) {
             this.questUpdates = questUpdates;
             this.taskUpdates = taskUpdates;
             this.bossKillCountCount = bossKillCountCount;
+            this.completions = completions;
         }
 
         public int getQuestUpdates() {
@@ -956,6 +991,8 @@ public class SyncService {
         public int getBossKillCountCount() {
             return bossKillCountCount;
         }
+
+        java.util.List<ProgressionFeedback.Event> getCompletions() { return completions; }
     }
 
     public static class LinkResult {

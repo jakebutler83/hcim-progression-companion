@@ -5,6 +5,7 @@ import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 
 /** Reads the same four Fossil Island varps used by RuneLite's Time Tracking plugin. */
 public class BirdhouseTracker
@@ -61,6 +62,8 @@ public class BirdhouseTracker
 
     public BirdhouseSnapshot snapshot()
     {
+        BirdhouseSnapshot tracked = timeTrackingSnapshot();
+        if (!tracked.getHouses().isEmpty()) return tracked;
         BirdhouseSnapshot result = new BirdhouseSnapshot();
         long now = System.currentTimeMillis() / 1000L;
         long nextReady = Long.MAX_VALUE;
@@ -81,6 +84,50 @@ public class BirdhouseTracker
         }
         result.setNextReadyAt(nextReady == Long.MAX_VALUE ? 0 : nextReady);
         return result;
+    }
+
+    void reset() { states.clear(); }
+
+    /** Read RuneLite's own saved timestamps; never restart a timer on login. */
+    BirdhouseSnapshot timeTrackingSnapshot()
+    {
+        BirdhouseSnapshot result = new BirdhouseSnapshot();
+        long now = System.currentTimeMillis() / 1000L;
+        long nextReady = Long.MAX_VALUE;
+        for (HouseDef house : HOUSES)
+        {
+            String stored = configManager.getRSProfileConfiguration(TimeTrackingConfig.CONFIG_GROUP,
+                TimeTrackingConfig.BIRD_HOUSE + "." + house.varp);
+            BirdhouseSnapshot.House record = fromTimeTracking(house.name, stored, now);
+            if (record == null) continue;
+            result.getHouses().add(record);
+            result.setTrackedCount(result.getTrackedCount() + 1);
+            if (record.getReadyAt() > 0)
+            {
+                result.setSeededCount(result.getSeededCount() + 1);
+                if ("ready".equals(record.getState())) result.setReadyCount(result.getReadyCount() + 1);
+                else nextReady = Math.min(nextReady, record.getReadyAt());
+            }
+        }
+        result.setNextReadyAt(nextReady == Long.MAX_VALUE ? 0 : nextReady);
+        return result;
+    }
+
+    static BirdhouseSnapshot.House fromTimeTracking(String name, String stored, long now)
+    {
+        if (stored == null || stored.length() > 80) return null;
+        String[] parts = stored.split(":");
+        if (parts.length != 2) return null;
+        try
+        {
+            int value = Integer.parseInt(parts[0]);
+            long changed = Long.parseLong(parts[1]);
+            if (value < 0 || value > 300 || changed <= 0 || changed > now + 300) return null;
+            long ready = value > 0 && value % 3 == 0 ? changed + DURATION_SECONDS : 0;
+            String state = value == 0 ? "empty" : ready == 0 ? "needs-seeds" : ready <= now ? "ready" : "growing";
+            return new BirdhouseSnapshot.House(name, state, changed, ready);
+        }
+        catch (NumberFormatException ignored) { return null; }
     }
 
     private String status(int value, long changedAt, long now)

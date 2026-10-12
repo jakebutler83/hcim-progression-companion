@@ -37,9 +37,12 @@ import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.Notifier;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.events.PluginMessage;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -100,6 +103,20 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Inject private HiscoreClient hiscoreClient;
     @Inject private Gson gson;
     @Inject private EventBus eventBus;
+    @Inject private OverlayManager overlayManager;
+    @Inject private Notifier notifier;
+
+    private final ProgressionFeedback progressionFeedback = new ProgressionFeedback();
+    private ProgressionOverlay progressionOverlay;
+    private boolean feedbackRunning;
+    private long feedbackRevision;
+    private long nextGoalPollAt;
+    private boolean goalPollInFlight;
+    private int goalPollFailures;
+    private final RoutineReminderTracker routineReminderTracker = new RoutineReminderTracker();
+    private long nextRoutineCheckAt;
+    private String goalReadStatus = "";
+    private String lastFeedbackPanelStatus = "";
 
     private final LocationService locationService = new LocationService();
     private final SocialPresenceService socialPresenceService = new SocialPresenceService();
@@ -168,6 +185,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        feedbackRunning = true;
+        lastFeedbackPanelStatus = "";
+        progressionFeedback.session("");
+        progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client);
+        overlayManager.add(progressionOverlay);
         tickCounter = 0;
         long now = System.currentTimeMillis();
         nextLiveSyncAt = now + randomJitter(30_000L);
@@ -214,7 +236,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastClueRewardCapturedAt = 0L;
         lastBarrowsRewardFingerprint = "";
         lastBarrowsRewardCapturedAt = 0L;
-        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow);
+        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder);
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
         tcgCollectionSnapshotService = new TcgCollectionSnapshotService(eventBus);
@@ -261,6 +283,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void shutDown()
     {
+        feedbackRunning = false;
+        progressionFeedback.session("");
+        if (progressionOverlay != null) overlayManager.remove(progressionOverlay);
+        progressionOverlay = null;
+        routineReminderTracker.reset();
         if (automaticAccountSyncTask != null)
         {
             automaticAccountSyncTask.cancel(false);
@@ -408,6 +435,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             try
             {
+                refreshFeedbackSession();
+                final long syncFeedbackRevision = feedbackRevision;
                 if (client.getGameState() != GameState.LOGGED_IN && (!allowCachedSnapshot || latestAccountSnapshot == null))
                 {
                     accountSyncInFlight = false;
@@ -496,6 +525,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                         );
                         if (!forceUpload && snapshotFingerprint.equals(savedFingerprint))
                         {
+                            clientThread.invokeLater(() -> progressionFeedback.baseline(syncFeedbackRevision));
                             accountSyncInFlight = false;
                             SwingUtilities.invokeLater(() ->
                             {
@@ -514,6 +544,16 @@ public class HcimProgressionCompanionPlugin extends Plugin
                             accountSyncInFlight = false;
                             if (error == null && result != null)
                             {
+                                clientThread.invokeLater(() -> {
+                                    refreshFeedbackSession();
+                                    if (client.getGameState() == GameState.LOGGED_IN
+                                        && token.equals(deviceToken())
+                                        && accountKey(snapshot.getPlayerName()).equals(accountKey(currentPlayerName())))
+                                    {
+                                        progressionFeedback.accept(syncFeedbackRevision,
+                                            notificationEligible && config.progressionPopupsEnabled(), result.getCompletions());
+                                    }
+                                });
                                 configManager.setConfiguration(
                                     HcimProgressionCompanionConfig.GROUP,
                                     snapshotFingerprintKey,
@@ -713,6 +753,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
+        if (HcimProgressionCompanionConfig.GROUP.equals(event.getGroup())
+            && ("progressionPopupsEnabled".equals(event.getKey())
+                || "pinnedGoalEnabled".equals(event.getKey()) || "routineRemindersEnabled".equals(event.getKey())
+                || "questCompletionPopups".equals(event.getKey()) || "diaryCompletionPopups".equals(event.getKey())
+                || "milestoneCompletionPopups".equals(event.getKey()) || "apiBaseUrl".equals(event.getKey())))
+        {
+            clientThread.invokeLater(this::refreshFeedbackSession);
+        }
         // RuneLite Time Tracking owns the authoritative per-profile farming
         // records. Queue a snapshot whenever it observes a patch, even when
         // the raw transmit varbit transition happened during our cooldown.
@@ -725,13 +773,29 @@ public class HcimProgressionCompanionPlugin extends Plugin
     }
 
     @Subscribe
+    public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
+    {
+        // RuneLite can change RS profiles independently of a visible name
+        // change. Discard every cached timer before reading that profile.
+        if (birdhouseTracker != null) birdhouseTracker.reset();
+        if (farmRunTracker != null) farmRunTracker.reset();
+        routineReminderTracker.reset();
+        progressionFeedback.session("");
+    }
+
+    @Subscribe
     public void onGameStateChanged(GameStateChanged event)
     {
         GameState nextState = event.getGameState();
+        if (isLoggedOutState(nextState)) progressionFeedback.session("");
+        if (isLoggedOutState(nextState)) routineReminderTracker.reset();
+        if (isLoggedOutState(nextState)) updateFeedbackPanel();
         boolean sessionStarted = nextState == GameState.LOGGED_IN && !accountSessionActive;
         if (sessionStarted)
         {
             accountSessionActive = true;
+            if (!currentPlayerName().isEmpty()) updateActiveAccountLink(currentPlayerName());
+            refreshFeedbackSession();
         }
 
         // A farm timer can be unchanged while the client is restarted or the
@@ -1144,6 +1208,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
+        // Resolve the character before any sync/poll can use a previous link.
+        updateActiveAccountLink(currentPlayerName());
+        refreshFeedbackSession();
+
         if (!pendingClueRewardSource.isEmpty() && pendingClueRewardTicks > 0 && --pendingClueRewardTicks == 0)
         {
             capturePendingClueReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
@@ -1165,6 +1233,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             farmRunSyncPending = true;
         }
+        handleProgressionFeedback(birdhouseNow);
         if (farmRunSyncPending
             && birdhouseNow - lastFarmRunSyncAt >= FARM_RUN_SYNC_COOLDOWN_MILLIS
             && !deviceToken().isEmpty())
@@ -1339,7 +1408,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
             // Below 40, the periodic heartbeat is sufficient. Above 40, an
             // exact level transition is retained so no real level-up is
             // silently skipped by two-level bucketing.
-            int trackedLevel = level > 40 ? level : 0;
+            // Opt-in completion feedback includes early progression milestones
+            // too. The normal debounce and five-minute upload cap still apply.
+            int trackedLevel = level > 40 || config.progressionPopupsEnabled() ? level : 0;
             fingerprint.append(trackedLevel).append('|');
         }
 
@@ -1883,6 +1954,118 @@ public class HcimProgressionCompanionPlugin extends Plugin
             .replaceAll("^_+|_+$", "");
     }
 
+    private void refreshFeedbackSession()
+    {
+        progressionFeedback.categories(config.questCompletionPopups(), config.diaryCompletionPopups(), config.milestoneCompletionPopups());
+        String name = currentPlayerName();
+        String token = deviceToken();
+        String session = feedbackRunning && !name.isEmpty()
+            ? accountKey(name) + ":" + token + ":" + config.apiBaseUrl()
+                + ":" + config.progressionPopupsEnabled() + ":" + config.pinnedGoalEnabled()
+                + ":" + config.routineRemindersEnabled()
+            : "";
+        long revision = progressionFeedback.session(session);
+        if (revision != feedbackRevision)
+        {
+            feedbackRevision = revision;
+            nextGoalPollAt = 0L;
+            goalPollInFlight = false;
+            goalPollFailures = 0;
+            nextRoutineCheckAt = 0L;
+            routineReminderTracker.reset();
+            goalReadStatus = "Waiting to check your pinned website task.";
+        }
+    }
+
+    private void handleProgressionFeedback(long now)
+    {
+        if (config.routineRemindersEnabled() && now >= nextRoutineCheckAt)
+        {
+            nextRoutineCheckAt = now + 10_000L;
+            for (String message : routineReminderTracker.observe(
+                birdhouseTracker == null ? null : birdhouseTracker.timeTrackingSnapshot(),
+                farmRunTracker == null ? null : farmRunTracker.timeTrackingSnapshot(), now / 1000L))
+            {
+                progressionFeedback.routine(message);
+            }
+        }
+        String popup = progressionFeedback.tick(now);
+        ProgressionFeedback.View view = progressionFeedback.view(now);
+        boolean notify = view.routinePopup
+            ? config.routineRemindersEnabled() && config.routineDesktopNotifications()
+            : config.progressionPopupsEnabled() && config.progressionDesktopNotifications();
+        if (!popup.isEmpty() && notify)
+        {
+            notifier.notify("Progression Path: " + popup + (view.routinePopup ? "" : " — complete!"));
+        }
+        updateFeedbackPanel();
+        if (!config.pinnedGoalEnabled() || !progressionFeedback.current(feedbackRevision)
+            || deviceToken().isEmpty() || goalPollInFlight || now < nextGoalPollAt) return;
+        goalPollInFlight = true;
+        goalReadStatus = "Checking the website for this character's pinned task…";
+        nextGoalPollAt = now + 60_000L;
+        final long revision = feedbackRevision;
+        final String token = deviceToken();
+        final String name = currentPlayerName();
+        syncService.fetchPinnedGoal(config.apiBaseUrl(), token, name, (goal, error) ->
+            clientThread.invokeLater(() -> {
+                refreshFeedbackSession();
+                if (!progressionFeedback.current(revision) || !token.equals(deviceToken())
+                    || !accountKey(name).equals(accountKey(currentPlayerName()))) return;
+                goalPollInFlight = false;
+                progressionFeedback.goal(revision, error == null ? goal : null, System.currentTimeMillis());
+                if (error != null)
+                {
+                    goalPollFailures = Math.min(4, goalPollFailures + 1);
+                    long retryAfter = parseRetryAfter(error) * 1000L;
+                    nextGoalPollAt = System.currentTimeMillis() + Math.max(retryAfter, 60_000L * (1L << goalPollFailures));
+                    goalReadStatus = "Pinned task unavailable. Retrying in "
+                        + Math.max(1, (nextGoalPollAt - System.currentTimeMillis()) / 60_000L) + " min.";
+                    logger.debug("Pinned goal refresh failed; backing off");
+                }
+                else
+                {
+                    goalPollFailures = 0;
+                    goalReadStatus = goal == null ? "No task pinned. Use Pin next task in RuneLite on your website dashboard."
+                        : (goal.done >= goal.total ? "Completed: " : "Pinned: ") + ProgressionFeedback.clean(goal.title);
+                }
+                updateFeedbackPanel();
+            }));
+    }
+
+    private void previewRoutineReminder()
+    {
+        clientThread.invokeLater(() -> {
+            if (!feedbackRunning || client.getGameState() != GameState.LOGGED_IN || !config.routineRemindersEnabled()) return;
+            refreshFeedbackSession();
+            progressionFeedback.routine("Test reminder — your real farm and birdhouse timers have not been changed.");
+        });
+    }
+
+    private void updateFeedbackPanel()
+    {
+        if (panel == null) return;
+        boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
+        boolean completions = config.progressionPopupsEnabled(), auto = config.automaticAccountSyncEnabled();
+        boolean pinned = config.pinnedGoalEnabled(), routines = config.routineRemindersEnabled();
+        String status = !loggedIn ? "Log into RuneScape to use the in-game displays."
+            : !pinned ? "Pin a task on the website dashboard, then enable Pinned website goal in plugin settings."
+            : deviceToken().isEmpty() ? "Link this character to the website to display its pinned task." : goalReadStatus;
+        String fingerprint = completions + ":" + auto + ":" + pinned + ":" + routines + ":" + loggedIn + ":" + status
+            + ":" + progressionFeedback.recentRevision();
+        if (fingerprint.equals(lastFeedbackPanelStatus)) return;
+        lastFeedbackPanelStatus = fingerprint;
+        HcimProgressionCompanionPanel currentPanel = panel;
+        java.util.List<ProgressionFeedback.Recent> recent = progressionFeedback.recent();
+        SwingUtilities.invokeLater(() -> {
+            if (panel == currentPanel && fingerprint.equals(lastFeedbackPanelStatus))
+            {
+                currentPanel.showProgressionDisplays(completions, auto, pinned, routines, loggedIn, status);
+                currentPanel.showRecentCompletions(recent);
+            }
+        });
+    }
+
     private void updateActiveAccountLink(String playerName)
     {
         String key = accountKey(playerName);
@@ -1891,6 +2074,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
         activePlayerKey = key;
+        if (birdhouseTracker != null) birdhouseTracker.reset();
+        if (farmRunTracker != null) farmRunTracker.reset();
         automaticAccountSyncDirty = false;
         automaticAccountSyncNotificationEligible = false;
         automaticAccountSyncDebounceTicks = 0;

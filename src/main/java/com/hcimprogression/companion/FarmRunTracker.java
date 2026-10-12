@@ -223,7 +223,9 @@ public class FarmRunTracker
         return result;
     }
 
-    private FarmRunSnapshot timeTrackingSnapshot()
+    void reset() { states.clear(); leaguesWorld = false; }
+
+    FarmRunSnapshot timeTrackingSnapshot()
     {
         FarmRunSnapshot result = new FarmRunSnapshot();
         long now = System.currentTimeMillis() / 1000L;

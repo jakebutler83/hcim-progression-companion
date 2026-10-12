@@ -8,7 +8,10 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.time.LocalTime;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
@@ -59,6 +62,12 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel collectionCaptureValue = new JLabel("Open clue pages");
     private final JLabel clueCountsValue = new JLabel("—");
     private final JLabel tcgValue = new JLabel("Disabled");
+    private final JLabel completionDisplayValue = new JLabel("Off");
+    private final JLabel pinnedGoalValue = new JLabel("Off");
+    private final JLabel routineReminderValue = new JLabel("Off");
+    private final JLabel pinnedGoalHint = createHint("Pin your next task from the website dashboard, then enable Pinned website goal in plugin settings.");
+    private final JPanel recentCompletionsBody = createVerticalPanel(CARD_BACKGROUND);
+    private final JButton reminderPreviewButton = new JButton("Preview local reminder");
     private final JLabel playerValue = new JLabel("—");
     private final JLabel worldValue = new JLabel("—");
     private final JLabel regionValue = new JLabel("—");
@@ -70,7 +79,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JButton accountSyncButton = new JButton("Sync Account Now");
     private boolean accountSyncCooldown;
 
-    public HcimProgressionCompanionPanel(Consumer<String> linkHandler, Runnable accountSyncHandler)
+    public HcimProgressionCompanionPanel(Consumer<String> linkHandler, Runnable accountSyncHandler, Runnable reminderPreviewHandler)
     {
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -171,6 +180,28 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         content.add(createCollapsibleCard("ACCOUNT SYNC", SUCCESS, accountBody, true));
         content.add(Box.createVerticalStrut(8));
 
+        JPanel progressionBody = createVerticalPanel(CARD_BACKGROUND);
+        progressionBody.add(createRow("Completions", completionDisplayValue));
+        progressionBody.add(createRow("Website goal", pinnedGoalValue));
+        progressionBody.add(createRow("Local routines", routineReminderValue));
+        progressionBody.add(Box.createVerticalStrut(5));
+        progressionBody.add(pinnedGoalHint);
+        progressionBody.add(Box.createVerticalStrut(7));
+        styleButton(reminderPreviewButton, false);
+        reminderPreviewButton.setEnabled(false);
+        reminderPreviewButton.setToolTipText("Enable Local farm / birdhouse reminders in plugin settings, then log into RuneScape to preview the overlay. No timers are changed.");
+        reminderPreviewButton.addActionListener(event -> reminderPreviewHandler.run());
+        progressionBody.add(reminderPreviewButton);
+        progressionBody.add(Box.createVerticalStrut(5));
+        progressionBody.add(createHint("All displays are optional. Local routines use Time Tracking; no website connection is needed."));
+        progressionBody.add(Box.createVerticalStrut(6));
+        progressionBody.add(createHint("Mute quests, diaries, or milestones separately in plugin settings. Muted completions still appear below."));
+        progressionBody.add(Box.createVerticalStrut(6));
+        showRecentCompletions(java.util.Collections.emptyList());
+        progressionBody.add(createCollapsibleCard("RECENT COMPLETIONS", SUCCESS, recentCompletionsBody, false));
+        content.add(createCollapsibleCard("IN-GAME DISPLAYS", GOLD, progressionBody, false));
+        content.add(Box.createVerticalStrut(8));
+
         JPanel liveSyncBody = createVerticalPanel(CARD_BACKGROUND);
         liveSyncBody.add(createRow("Location sharing", sharingValue));
         liveSyncBody.add(createRow("Location update", locationSyncValue));
@@ -200,6 +231,49 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         content.add(createHint("Only features enabled in the plugin settings are shared."));
 
         add(content, BorderLayout.NORTH);
+    }
+
+    public void showProgressionDisplays(boolean completions, boolean autoSync, boolean pinned,
+        boolean routines, boolean loggedIn, String goalStatus)
+    {
+        completionDisplayValue.setText(!completions ? "Off" : autoSync ? "On" : "Needs auto sync");
+        completionDisplayValue.setForeground(!completions ? MUTED : autoSync ? SUCCESS : WARNING);
+        pinnedGoalValue.setText(pinned ? "On" : "Off");
+        pinnedGoalValue.setForeground(pinned ? SUCCESS : MUTED);
+        routineReminderValue.setText(routines ? "On · local only" : "Off");
+        routineReminderValue.setForeground(routines ? SUCCESS : MUTED);
+        String hint = ProgressionFeedback.clean(goalStatus).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        pinnedGoalHint.setText("<html><body style='width: 185px'>" + hint + "</body></html>");
+        reminderPreviewButton.setEnabled(routines && loggedIn);
+    }
+
+    void showRecentCompletions(List<ProgressionFeedback.Recent> recent)
+    {
+        recentCompletionsBody.removeAll();
+        recentCompletionsBody.add(createHint("Last 10 new completions this session. Clears on logout or character change; never uploaded."));
+        if (recent.isEmpty())
+        {
+            recentCompletionsBody.add(createHint("No new completions yet. Enable completion pop-ups and automatic snapshots; old achievements stay silent."));
+        }
+        for (ProgressionFeedback.Recent entry : recent.subList(0, Math.min(10, recent.size())))
+        {
+            recentCompletionsBody.add(Box.createVerticalStrut(6));
+            JLabel label = new JLabel();
+            label.setForeground(Color.LIGHT_GRAY);
+            label.setFont(label.getFont().deriveFont(11f));
+            label.setAlignmentX(LEFT_ALIGNMENT);
+            String time = Instant.ofEpochMilli(entry.completedAt).atZone(ZoneId.systemDefault()).format(TIME_FORMAT);
+            StringBuilder html = new StringBuilder("<html><body style='width: 175px'>");
+            html.append(entry.category).append(" · ").append(time).append("<br>");
+            for (String line : ProgressionFeedback.wrap(entry.title, 27))
+            {
+                html.append(line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")).append("<br>");
+            }
+            label.setText(html.append("</body></html>").toString());
+            recentCompletionsBody.add(label);
+        }
+        recentCompletionsBody.revalidate();
+        recentCompletionsBody.repaint();
     }
 
     private JPanel createHeader()
