@@ -109,6 +109,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final ProgressionFeedback progressionFeedback = new ProgressionFeedback();
     private ProgressionOverlay progressionOverlay;
     private RoutineRouteHelper routeHelper;
+    private SessionGoalHelper sessionGoals;
+    private boolean packingDirty = true;
+    private String packingCharacter = "";
     private boolean feedbackRunning;
     private long feedbackRevision;
     private long nextGoalPollAt;
@@ -187,10 +190,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
     protected void startUp()
     {
         feedbackRunning = true;
+        packingDirty = true; packingCharacter = "";
         lastFeedbackPanelStatus = "";
         progressionFeedback.session("");
         routeHelper = new RoutineRouteHelper(configManager, config, syncService, gson, clientThread);
-        progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client, routeHelper);
+        SkillGoalSync goalSync = new SkillGoalSync(config::skillGoalSyncEnabled,(name,token,api,goal,callback) ->
+            syncService.syncSkillGoal(api,token,name,goal,(result,error) -> clientThread.invokeLater(() -> callback.accept(result,error))));
+        sessionGoals = new SessionGoalHelper(client, clientThread, config, notifier,goalSync);
+        progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client, routeHelper, sessionGoals);
         overlayManager.add(progressionOverlay);
         tickCounter = 0;
         long now = System.currentTimeMillis();
@@ -238,7 +245,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastClueRewardCapturedAt = 0L;
         lastBarrowsRewardFingerprint = "";
         lastBarrowsRewardCapturedAt = 0L;
-        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel());
+        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel(), sessionGoals.panel());
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
         tcgCollectionSnapshotService = new TcgCollectionSnapshotService(eventBus);
@@ -288,6 +295,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         feedbackRunning = false;
         if (routeHelper != null) routeHelper.reset();
         routeHelper = null;
+        if (sessionGoals != null) sessionGoals.reset();
+        sessionGoals = null;
         progressionFeedback.session("");
         if (progressionOverlay != null) overlayManager.remove(progressionOverlay);
         progressionOverlay = null;
@@ -757,13 +766,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
-        if (HcimProgressionCompanionConfig.GROUP.equals(event.getGroup())
-            && ("progressionPopupsEnabled".equals(event.getKey())
-                || "pinnedGoalEnabled".equals(event.getKey()) || "routineRemindersEnabled".equals(event.getKey())
-                || "questCompletionPopups".equals(event.getKey()) || "diaryCompletionPopups".equals(event.getKey())
-                || "milestoneCompletionPopups".equals(event.getKey()) || "apiBaseUrl".equals(event.getKey())))
+        if (HcimProgressionCompanionConfig.GROUP.equals(event.getGroup()))
         {
-            clientThread.invokeLater(this::refreshFeedbackSession);
+            clientThread.invokeLater(() -> { packingDirty = true; refreshFeedbackSession(); });
         }
         // RuneLite Time Tracking owns the authoritative per-profile farming
         // records. Queue a snapshot whenever it observes a patch, even when
@@ -786,6 +791,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         routineReminderTracker.reset();
         progressionFeedback.session("");
         if (routeHelper != null) routeHelper.reset();
+        if (sessionGoals != null) sessionGoals.reset();
+        packingDirty = true; packingCharacter = "";
     }
 
     @Subscribe
@@ -795,6 +802,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (isLoggedOutState(nextState)) progressionFeedback.session("");
         if (isLoggedOutState(nextState)) routineReminderTracker.reset();
         if (isLoggedOutState(nextState) && routeHelper != null) routeHelper.reset();
+        if (isLoggedOutState(nextState) && sessionGoals != null) sessionGoals.reset();
         if (isLoggedOutState(nextState)) updateFeedbackPanel();
         boolean sessionStarted = nextState == GameState.LOGGED_IN && !accountSessionActive;
         if (sessionStarted)
@@ -1085,6 +1093,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     public void onStatChanged(StatChanged event)
     {
         socialPresenceService.updateSkillActivity(event.getSkill(), event.getXp(), System.currentTimeMillis());
+        if (sessionGoals != null) sessionGoals.changed(event.getSkill(), event.getXp());
     }
 
     @Subscribe
@@ -1122,6 +1131,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) packingDirty = true;
         if (event.getContainerId() == InventoryID.TRAIL_REWARDINV
             && client.getTopLevelInterfaceId() == InterfaceID.BARROWS_REWARD)
         {
@@ -1217,6 +1227,15 @@ public class HcimProgressionCompanionPlugin extends Plugin
         // Resolve the character before any sync/poll can use a previous link.
         updateActiveAccountLink(currentPlayerName());
         refreshFeedbackSession();
+
+        if (packingDirty && routeHelper != null)
+        {
+            packingDirty = false;
+            ItemContainer inventory = client.getItemContainer(InventoryID.INV);
+            boolean enabled = config.routineRoutesEnabled() && config.livePackingChecksEnabled();
+            routeHelper.carriedItems(enabled ? CarriedItemSnapshot.capture(itemManager, inventory, client.getItemContainer(InventoryID.WORN))
+                : java.util.Collections.emptyMap(), enabled && inventory != null);
+        }
 
         if (!pendingClueRewardSource.isEmpty() && pendingClueRewardTicks > 0 && --pendingClueRewardTicks == 0)
         {
@@ -1962,8 +1981,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void refreshFeedbackSession()
     {
-        if (routeHelper != null) routeHelper.session(
-            client.getGameState() == GameState.LOGGED_IN ? currentPlayerName() : "", deviceToken(), config.apiBaseUrl());
+        String packingName = currentPlayerName();
+        if (!packingName.equals(packingCharacter)) { packingCharacter = packingName; packingDirty = true; }
+        if (sessionGoals != null) sessionGoals.session(packingName);
+        if (sessionGoals != null) sessionGoals.connection(packingName,deviceToken(),config.apiBaseUrl());
+        if (routeHelper != null && routeHelper.session(
+            client.getGameState() == GameState.LOGGED_IN ? currentPlayerName() : "", deviceToken(), config.apiBaseUrl())) packingDirty = true;
         progressionFeedback.categories(config.questCompletionPopups(), config.diaryCompletionPopups(), config.milestoneCompletionPopups());
         String name = currentPlayerName();
         String token = deviceToken();
@@ -1987,6 +2010,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void handleProgressionFeedback(long now)
     {
+        if (sessionGoals != null) sessionGoals.tick(now);
+        progressionFeedback.muted(sessionGoals != null && sessionGoals.muted(now));
         if (config.routineRemindersEnabled() && now >= nextRoutineCheckAt)
         {
             nextRoutineCheckAt = now + 10_000L;
@@ -1997,7 +2022,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 progressionFeedback.routine(message);
             }
         }
-        String popup = progressionFeedback.tick(now);
+        String popup = progressionFeedback.tick(now, config.progressionPopupSeconds());
         ProgressionFeedback.View view = progressionFeedback.view(now);
         boolean notify = view.routinePopup
             ? config.routineRemindersEnabled() && config.routineDesktopNotifications()

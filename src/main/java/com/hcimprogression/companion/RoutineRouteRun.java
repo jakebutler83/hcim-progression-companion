@@ -15,6 +15,7 @@ final class RoutineRouteRun
     }
     boolean active() { return plan != null; }
     int position() { return position; }
+    String packingItems() { return plan == null ? "" : plan.items; }
     void stop() { plan = null; position = -1; }
     void next() { if (plan != null && ++position >= RoutineRoutePlan.lines(plan.stops).size()) stop(); }
     void back() { if (plan != null) position = Math.max(-1, position - 1); }

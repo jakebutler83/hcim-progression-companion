@@ -14,6 +14,17 @@ import static org.junit.Assert.*;
 /** Component-only tests: never launches or interacts with RuneScape. */
 public class ProgressionPanelTest
 {
+    @Test public void localGoalPanelExposesControlsWithoutAnyWebsiteConnection() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() -> {
+            SessionGoalHelper helper = new SessionGoalHelper(null,null,new HcimProgressionCompanionConfig() {},null);
+            HcimProgressionCompanionPanel panel = new HcimProgressionCompanionPanel(code -> {}, () -> {}, () -> {},null,helper.panel());
+            List<Component> values = components(panel);
+            for (String title : new String[]{"Start goal","Clear","Restart summary","Pause 15 min","Resume alerts"})
+                assertTrue(values.stream().filter(JButton.class::isInstance).map(JButton.class::cast).anyMatch(button -> title.equals(button.getText())));
+            assertNull(helper.view()); assertFalse(helper.muted(0));
+        });
+    }
     @Test public void recentCompletionsEscapeMarkupAndClearOnSessionChange() throws Exception
     {
         SwingUtilities.invokeAndWait(() -> {

@@ -9,6 +9,7 @@ import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
+import net.runelite.client.ui.overlay.components.ProgressBarComponent;
 
 final class ProgressionOverlay extends OverlayPanel
 {
@@ -16,16 +17,18 @@ final class ProgressionOverlay extends OverlayPanel
     private final HcimProgressionCompanionConfig config;
     private final Client client;
     private final RoutineRouteHelper routes;
+    private final SessionGoalHelper skills;
     private static final Color GOLD = new Color(235, 194, 93);
 
     ProgressionOverlay(HcimProgressionCompanionPlugin plugin, ProgressionFeedback feedback,
-        HcimProgressionCompanionConfig config, Client client, RoutineRouteHelper routes)
+        HcimProgressionCompanionConfig config, Client client, RoutineRouteHelper routes, SessionGoalHelper skills)
     {
         super(plugin);
         this.feedback = feedback;
         this.config = config;
         this.client = client;
         this.routes = routes;
+        this.skills = skills;
         setPosition(OverlayPosition.TOP_LEFT);
         panelComponent.setPreferredSize(new Dimension(240, 0));
     }
@@ -35,12 +38,16 @@ final class ProgressionOverlay extends OverlayPanel
     {
         if (client.getGameState() != GameState.LOGGED_IN) return null;
         ProgressionFeedback.View view = feedback.view(System.currentTimeMillis());
-        boolean popup = !view.popup.isEmpty() && (view.routinePopup ? config.routineRemindersEnabled() : config.progressionPopupsEnabled());
+        boolean muted = skills != null && skills.muted(System.currentTimeMillis());
+        boolean popup = !muted && !view.popup.isEmpty() && (view.routinePopup ? config.routineRemindersEnabled() : config.progressionPopupsEnabled());
         boolean goal = config.pinnedGoalEnabled() && view.goal != null;
         RoutineRouteHelper.View route = routes == null ? null : routes.view();
-        if (!popup && !goal && route == null) return null;
+        SessionGoalHelper.View skill = skills == null ? null : skills.view();
+        if (!popup && !goal && route == null && skill == null) return null;
         panelComponent.getChildren().clear();
-        panelComponent.getChildren().add(TitleComponent.builder().text("Progression Path").color(GOLD).build());
+        boolean compact = config.compactProgressionOverlay();
+        panelComponent.setPreferredSize(new Dimension(compact ? 220 : 240, 0));
+        if (!compact) panelComponent.getChildren().add(TitleComponent.builder().text("Progression Path").color(GOLD).build());
         if (popup)
         {
             line(view.routinePopup ? "Routine ready to check" : view.popupCategory + " complete!", Color.GREEN);
@@ -55,7 +62,16 @@ final class ProgressionOverlay extends OverlayPanel
         if (route != null) {
             line(route.title, GOLD);
             wrapped(route.text);
-            line("Use Route Helper: Back / Next", Color.LIGHT_GRAY);
+            if (!route.packing.isEmpty()) wrapped(route.packing);
+            if (!compact) line("Use Route Helper: Back / Next", Color.LIGHT_GRAY);
+        }
+        if (skill != null)
+        {
+            line(skill.complete ? (!muted && System.currentTimeMillis() < skill.popupUntil ? "Skill goal complete!" : "Completed skill goal") : "Your skill goal", skill.complete ? Color.GREEN : GOLD);
+            wrapped(skill.title); wrapped(skill.progress);
+            ProgressBarComponent bar = new ProgressBarComponent();
+            bar.setMaximum(100); bar.setValue(skill.percent); bar.setForegroundColor(skill.complete ? Color.GREEN : GOLD);
+            panelComponent.getChildren().add(bar);
         }
         return super.render(graphics);
     }

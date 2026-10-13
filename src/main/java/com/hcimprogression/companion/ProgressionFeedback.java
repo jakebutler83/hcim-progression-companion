@@ -24,6 +24,7 @@ final class ProgressionFeedback
     private String popupCategory = "";
     private long popupUntil;
     private boolean routinePopup;
+    private boolean muted;
     private Goal goal;
     private long goalUntil;
 
@@ -74,7 +75,7 @@ final class ProgressionFeedback
                 recent.addFirst(new Recent(title, category, System.currentTimeMillis()));
                 if (recent.size() > 10) recent.removeLast();
                 recentRevision++;
-                if (enabled(category) && pending.size() < 8) pending.add(new Popup(title, false, category));
+                if (!muted && enabled(category) && pending.size() < 8) pending.add(new Popup(title, false, category));
             }
         }
     }
@@ -105,7 +106,13 @@ final class ProgressionFeedback
     synchronized void routine(String message)
     {
         String text = clean(message);
-        if (!session.isEmpty() && !text.isEmpty() && pending.size() < 8) pending.add(new Popup(text, true, "Routine"));
+        if (!muted && !session.isEmpty() && !text.isEmpty() && pending.size() < 8) pending.add(new Popup(text, true, "Routine"));
+    }
+
+    synchronized void muted(boolean next)
+    {
+        muted = next;
+        if (muted) { pending.clear(); popup = ""; }
     }
 
     synchronized void goal(long revision, Goal next, long now)
@@ -124,12 +131,18 @@ final class ProgressionFeedback
     /** Advances only on game ticks; the overlay just reads an immutable view. */
     synchronized String tick(long now)
     {
+        return tick(now, 8);
+    }
+
+    synchronized String tick(long now, int seconds)
+    {
+        if (muted) return "";
         if (now < popupUntil && !popup.isEmpty()) return "";
         Popup next = pending.poll();
         popup = next == null ? "" : next.text;
         popupCategory = next == null ? "" : next.category;
         routinePopup = next != null && next.routine;
-        popupUntil = now + POPUP_MILLIS;
+        popupUntil = now + Math.max(3, Math.min(20, seconds)) * 1000L;
         return popup;
     }
 

@@ -121,6 +121,22 @@ public class SyncService {
         } catch (RuntimeException error) { callback.accept(null, friendly(error)); }
     }
 
+    void syncSkillGoal(String api,String token,String name,SkillGoalSync.Goal goal,BiConsumer<SkillGoalSync.Response,String> callback)
+    {
+        Map<String,Object> payload = new LinkedHashMap<>(); payload.put("playerName",name); payload.put("goal",goal);
+        try {
+            post(api,"companion-skill-goal",token,gson.toJson(payload)).orTimeout(20,TimeUnit.SECONDS).whenComplete((body,error) -> {
+                if (error != null) { callback.accept(null,friendly(error)); return; }
+                try {
+                    SkillGoalSync.Response response = gson.fromJson(body,SkillGoalSync.Response.class);
+                    if (response == null || !response.ok || response.sequence < 1 || !("active".equals(response.status) || "completed".equals(response.status) || "stopped".equals(response.status)))
+                        callback.accept(null,"Invalid skill goal response");
+                    else callback.accept(response,null);
+                } catch (RuntimeException invalid) { callback.accept(null,"Invalid skill goal response"); }
+            });
+        } catch (RuntimeException error) { callback.accept(null,friendly(error)); }
+    }
+
     public void syncLocation(
             String apiBaseUrl,
             String token,

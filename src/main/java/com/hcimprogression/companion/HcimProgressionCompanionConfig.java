@@ -157,6 +157,36 @@ public interface HcimProgressionCompanionConfig extends Config
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers", position = 62)
     default boolean routineRoutesSyncEnabled() { return false; }
 
+    @ConfigItem(keyName = "livePackingChecksEnabled", name = "Live packing checks",
+        description = "Checks exact Item name x quantity entries against inventory and worn gear in Route Helper. Free-form notes need manual review. Does not read your bank, verify charges, or move items. Requires Local route helper.", position = 63)
+    default boolean livePackingChecksEnabled() { return false; }
+
+    @ConfigItem(keyName = "sessionSkillGoalsEnabled", name = "Local skill goals",
+        description = "Live XP-gain or target-level goals with a progress bar and completion message. Local only; no website link needed. Goals reset on logout or character/profile change.", position = 64)
+    default boolean sessionSkillGoalsEnabled() { return false; }
+
+    @ConfigItem(keyName = "skillGoalDesktopNotifications", name = "Also notify for skill goals",
+        description = "Forwards a newly completed local skill goal through RuneLite notification settings. Requires Local skill goals.", position = 65)
+    default boolean skillGoalDesktopNotifications() { return false; }
+
+    @ConfigItem(keyName = "sessionSummaryEnabled", name = "Local session summary",
+        description = "Counts XP gained, real levels gained and completed local skill goals this session. No uploads or historical backfills. Resets on logout or character/profile change.", position = 66)
+    default boolean sessionSummaryEnabled() { return false; }
+
+    @net.runelite.client.config.Range(min = 3, max = 20)
+    @ConfigItem(keyName = "progressionPopupSeconds", name = "Pop-up duration (seconds)",
+        description = "Display new completion, routine and local skill-goal pop-ups for 3–20 seconds. Existing alerts keep their original duration.", position = 67)
+    default int progressionPopupSeconds() { return 8; }
+
+    @ConfigItem(keyName = "compactProgressionOverlay", name = "Compact progression display",
+        description = "Uses a smaller progression overlay and hides extra helper instructions. Does not hide your actual goal or route step.", position = 68)
+    default boolean compactProgressionOverlay() { return false; }
+
+    @ConfigItem(keyName = "skillGoalSyncEnabled", name = "Skill goal website sync",
+        description = "Sends your local skill-goal targets and progress to this linked character's private Journey tasks. Starts/completions send promptly; progress is batched about every two minutes. Goals remain on the website after logout.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers", position = 69)
+    default boolean skillGoalSyncEnabled() { return false; }
+
     @ConfigItem(
         keyName = "progressionDesktopNotifications",
         name = "Also notify outside the game",
