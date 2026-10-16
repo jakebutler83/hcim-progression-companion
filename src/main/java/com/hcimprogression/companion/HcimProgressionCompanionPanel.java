@@ -62,6 +62,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel collectionCaptureValue = new JLabel("Open clue pages");
     private final JLabel clueCountsValue = new JLabel("—");
     private final JLabel tcgValue = new JLabel("Disabled");
+    private final JLabel personalBestValue = new JLabel("Off · enable Personal best sync");
     private final JLabel completionDisplayValue = new JLabel("Off");
     private final JLabel pinnedGoalValue = new JLabel("Off");
     private final JLabel routineReminderValue = new JLabel("Off");
@@ -179,6 +180,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         syncDetails.add(createRow("Last error", accountSyncErrorValue));
         syncDetails.add(createRow("Clue totals", clueCountsValue));
         syncDetails.add(createRow("OSRS TCG", tcgValue));
+        syncDetails.add(createHint("PERSONAL RECORDS"));
+        syncDetails.add(personalBestValue);
+        personalBestValue.setFont(personalBestValue.getFont().deriveFont(10f));
+        personalBestValue.setForeground(MUTED);
+        personalBestValue.setToolTipText("Enable Personal best sync in plugin settings. Boss PBs come from RuneLite Chat Commands. Quest speedruns are captured from their game result screen.");
         accountBody.add(Box.createVerticalStrut(4));
         accountBody.add(createCollapsibleCard("SYNC DETAILS", MUTED, syncDetails, false));
         accountBody.add(Box.createVerticalStrut(8));
@@ -522,6 +528,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
             accountSyncStatusValue.setText("Reading account…");
             accountSyncStatusValue.setForeground(WARNING);
         }
+    }
+
+    public void showPersonalBestStatus(String status)
+    {
+        personalBestValue.setText("<html>" + status.replace("&", "&amp;").replace("<", "&lt;") + "</html>");
     }
 
     public void showAccountSyncSuccess(int quests, int tasks, int bossKillCounts)

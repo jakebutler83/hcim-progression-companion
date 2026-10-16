@@ -130,6 +130,11 @@ public interface HcimProgressionCompanionConfig extends Config
         return false;
     }
 
+    @ConfigItem(keyName = "personalBestSyncEnabled", name = "Personal best sync",
+        description = "Privately syncs this character's RuneLite Chat Commands personal bests and observed quest-speedrun result times. Uses a lightweight upload independent of Hiscores. Existing bests are imported; new records normally queue within a few seconds while logged in. Does not control gameplay.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers", position = 10)
+    default boolean personalBestSyncEnabled() { return false; }
+
     @ConfigItem(
         keyName = "progressionPopupsEnabled",
         name = "Progression completion pop-ups",

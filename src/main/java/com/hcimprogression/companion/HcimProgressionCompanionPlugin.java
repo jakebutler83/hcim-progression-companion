@@ -174,6 +174,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile boolean automaticAccountSyncNotificationEligible;
     private int automaticAccountSyncDebounceTicks;
     private volatile long lastAutomaticAccountSyncAt;
+    private PersonalBestSync personalBestSync;
+    private boolean personalBestsDirty = true;
+    private long nextPersonalBestReadAt;
+    private int questPbReadTicks;
+    private int questPbChatTick = -100;
+    private String lastPersonalBestStatus = "";
+    private String personalBestProfileBinding = "", personalBestWorldMode = "";
+    private long nextPersonalBestProfileCheckAt;
     private volatile boolean accountSyncInFlight;
     private volatile long accountSyncRateLimitedUntil;
     private boolean accountSessionActive;
@@ -246,6 +254,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastBarrowsRewardFingerprint = "";
         lastBarrowsRewardCapturedAt = 0L;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel(), sessionGoals.panel());
+        personalBestSync = new PersonalBestSync(config::personalBestSyncEnabled,
+            (name, token, api, records, done) -> syncService.syncPersonalBests(api, token, name, records,
+                (count, error) -> clientThread.invokeLater(() -> done.accept(count, error))));
+        personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100; lastPersonalBestStatus = "";
+        personalBestProfileBinding = ""; personalBestWorldMode = ""; nextPersonalBestProfileCheckAt = 0;
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
         tcgCollectionSnapshotService = new TcgCollectionSnapshotService(eventBus);
@@ -292,6 +305,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void shutDown()
     {
+        if (personalBestSync != null) personalBestSync.reset();
         feedbackRunning = false;
         if (routeHelper != null) routeHelper.reset();
         routeHelper = null;
@@ -766,9 +780,14 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
+        if (("personalbest".equals(event.getGroup()) || PersonalBestCapture.QUEST_GROUP.equals(event.getGroup()))
+            && java.util.Objects.equals(event.getProfile(), configManager.getRSProfileKey()))
+        {
+            clientThread.invokeLater(() -> personalBestsDirty = true);
+        }
         if (HcimProgressionCompanionConfig.GROUP.equals(event.getGroup()))
         {
-            clientThread.invokeLater(() -> { packingDirty = true; refreshFeedbackSession(); });
+            clientThread.invokeLater(() -> { packingDirty = true; personalBestsDirty = true; refreshFeedbackSession(); });
         }
         // RuneLite Time Tracking owns the authoritative per-profile farming
         // records. Queue a snapshot whenever it observes a patch, even when
@@ -784,6 +803,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
     {
+        if (personalBestSync != null) personalBestSync.reset();
+        personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100;
         // RuneLite can change RS profiles independently of a visible name
         // change. Discard every cached timer before reading that profile.
         if (birdhouseTracker != null) birdhouseTracker.reset();
@@ -799,6 +820,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     public void onGameStateChanged(GameStateChanged event)
     {
         GameState nextState = event.getGameState();
+        if (isLoggedOutState(nextState))
+        {
+            if (personalBestSync != null) personalBestSync.reset();
+            personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100;
+        }
         if (isLoggedOutState(nextState)) progressionFeedback.session("");
         if (isLoggedOutState(nextState)) routineReminderTracker.reset();
         if (isLoggedOutState(nextState) && routeHelper != null) routeHelper.reset();
@@ -876,6 +902,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             return;
         }
+        if (config.personalBestSyncEnabled() && (event.getType() == net.runelite.api.ChatMessageType.GAMEMESSAGE || event.getType() == net.runelite.api.ChatMessageType.SPAM)
+            && message.replaceAll("<[^>]+>|@[^@]+@", "").startsWith("Speedrun duration: ")
+            && message.contains("new personal best")) questPbChatTick = client.getTickCount();
 
         String normalized = message.replaceAll("<[^>]+>", " ")
             .replaceAll("\\s+", " ")
@@ -1170,6 +1199,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event)
     {
+        if (event.getGroupId() == InterfaceID.QUESTSCROLL_SPEEDRUN && config.personalBestSyncEnabled()) questPbReadTicks = 5;
         if (event.getGroupId() == InterfaceID.BARROWS_REWARD)
         {
             captureBarrowsReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
@@ -1227,6 +1257,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         // Resolve the character before any sync/poll can use a previous link.
         updateActiveAccountLink(currentPlayerName());
         refreshFeedbackSession();
+        handlePersonalBests(System.currentTimeMillis());
 
         if (packingDirty && routeHelper != null)
         {
@@ -1348,6 +1379,71 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private void requestAutomaticAccountSync()
     {
         requestAutomaticAccountSync(true);
+    }
+
+    private void handlePersonalBests(long now)
+    {
+        if (personalBestSync == null) return;
+        if (!config.personalBestSyncEnabled())
+        {
+            personalBestSync.tick(now); showPersonalBestStatus(personalBestSync.status()); return;
+        }
+        String binding = configManager.getRSProfileKey() + ":" + client.getAccountHash() + ":" + net.runelite.client.config.RuneScapeProfileType.getCurrent(client);
+        if (!binding.equals(personalBestProfileBinding) || now >= nextPersonalBestProfileCheckAt)
+        {
+            personalBestProfileBinding = binding;
+            personalBestWorldMode = PersonalBestCapture.mode(client, configManager);
+            nextPersonalBestProfileCheckAt = now + 30_000L;
+        }
+        String mode = personalBestWorldMode;
+        if (mode.isEmpty())
+        {
+            personalBestSync.reset(); showPersonalBestStatus("Waiting for matching RS profile"); return;
+        }
+        String token = deviceToken();
+        if (token.isEmpty()) { personalBestSync.reset(); showPersonalBestStatus("Link this character first"); return; }
+        personalBestSync.connection(currentPlayerName(), token, config.apiBaseUrl(), configManager.getRSProfileKey() + ":" + mode);
+        if (questPbReadTicks > 0)
+        {
+            --questPbReadTicks;
+            if (questPbReadTicks < 4 && mode.equals("QUEST_SPEEDRUNNING") && captureQuestPersonalBest()) questPbReadTicks = 0;
+        }
+        if (personalBestsDirty || now >= nextPersonalBestReadAt)
+        {
+            personalBestsDirty = false; nextPersonalBestReadAt = now + 30_000L;
+            personalBestSync.offer(PersonalBestCapture.read(configManager, mode), now);
+        }
+        personalBestSync.tick(now); showPersonalBestStatus(personalBestSync.status());
+    }
+
+    private void showPersonalBestStatus(String status)
+    {
+        if (status.equals(lastPersonalBestStatus)) return;
+        lastPersonalBestStatus = status;
+        SwingUtilities.invokeLater(() -> { if (panel != null) panel.showPersonalBestStatus(status); });
+    }
+
+    private boolean captureQuestPersonalBest()
+    {
+        net.runelite.api.widgets.Widget title = client.getWidget(InterfaceID.QuestscrollSpeedrun.QUEST_TITLE);
+        net.runelite.api.widgets.Widget best = client.getWidget(InterfaceID.QuestscrollSpeedrun.BEST_TEXT);
+        net.runelite.api.widgets.Widget time = client.getWidget(InterfaceID.QuestscrollSpeedrun.TIME_TEXT);
+        if (title == null || best == null || time == null) return false;
+        long milliseconds = PersonalBestCapture.parseTime(best.getText());
+        int chatAge = client.getTickCount() - questPbChatTick;
+        if (chatAge >= 0 && chatAge <= 5) milliseconds = PersonalBestCapture.parseTime(time.getText());
+        if (milliseconds <= 0) return false;
+        String heading = title.getText().replaceAll("<[^>]+>|@[^@]+@", " ").toLowerCase(Locale.ROOT);
+        String quest = java.util.Arrays.stream(Quest.values()).map(Quest::getName)
+            .sorted(java.util.Comparator.comparingInt(String::length).reversed())
+            .filter(name -> heading.contains(name.toLowerCase(Locale.ROOT))).findFirst().orElse("");
+        String key = "quest " + quest.toLowerCase(Locale.ROOT);
+        if (quest.isEmpty() || !PersonalBestCapture.validKey(key)) return false;
+        long previous = PersonalBestCapture.milliseconds(configManager.getRSProfileConfiguration(PersonalBestCapture.QUEST_GROUP, key));
+        if (previous == 0 || milliseconds < previous)
+            configManager.setRSProfileConfiguration(PersonalBestCapture.QUEST_GROUP, key, java.math.BigDecimal.valueOf(milliseconds, 3).toPlainString());
+        personalBestsDirty = true;
+        return true;
     }
 
     private void requestAutomaticAccountSync(boolean notificationEligible)

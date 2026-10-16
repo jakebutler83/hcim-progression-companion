@@ -3,6 +3,7 @@ package com.hcimprogression.companion;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -133,6 +134,22 @@ public class SyncService {
                         callback.accept(null,"Invalid skill goal response");
                     else callback.accept(response,null);
                 } catch (RuntimeException invalid) { callback.accept(null,"Invalid skill goal response"); }
+            });
+        } catch (RuntimeException error) { callback.accept(null,friendly(error)); }
+    }
+
+    void syncPersonalBests(String api, String token, String name, List<PersonalBestRecord> records, BiConsumer<Integer,String> callback)
+    {
+        Map<String,Object> payload = new LinkedHashMap<>(); payload.put("playerName",name); payload.put("records",records);
+        try {
+            post(api,"companion-personal-bests",token,gson.toJson(payload)).orTimeout(20,TimeUnit.SECONDS).whenComplete((body,error) -> {
+                if (error != null) { callback.accept(null,friendly(error)); return; }
+                try {
+                    com.google.gson.JsonObject response = gson.fromJson(body,com.google.gson.JsonObject.class);
+                    if (response == null || !response.has("ok") || !response.get("ok").getAsBoolean() || !response.has("recordCount"))
+                        callback.accept(null,"Invalid personal records response");
+                    else callback.accept(response.get("recordCount").getAsInt(),null);
+                } catch (RuntimeException invalid) { callback.accept(null,"Invalid personal records response"); }
             });
         } catch (RuntimeException error) { callback.accept(null,friendly(error)); }
     }
