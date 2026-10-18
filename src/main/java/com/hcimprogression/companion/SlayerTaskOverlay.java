@@ -10,7 +10,7 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.ProgressBarComponent;
 
-/** Compact, movable top-left panel. Only user-started assignment progress. */
+/** Compact, movable top-left panel for manually started, resumed or new assignments. */
 final class SlayerTaskOverlay extends OverlayPanel
 {
     private final Client client;
@@ -33,9 +33,12 @@ final class SlayerTaskOverlay extends OverlayPanel
             .right(view.done + " / " + view.total).leftColor(Color.LIGHT_GRAY).rightColor(Color.WHITE).build());
         ProgressBarComponent bar = new ProgressBarComponent();
         bar.setMaximum(100); bar.setValue(view.percent);
+        bar.setLabelDisplayMode(ProgressBarComponent.LabelDisplayMode.TEXT_ONLY);
+        bar.setCenterLabel(view.barLabel);
         bar.setForegroundColor(view.remaining == 0 ? new Color(104,211,145) : SidebarControls.GOLD);
         panelComponent.getChildren().add(bar);
-        panelComponent.getChildren().add(LineComponent.builder().left(view.remaining + " remaining").leftColor(Color.LIGHT_GRAY).build());
+        panelComponent.getChildren().add(LineComponent.builder().left(view.remaining + " remaining").right("Slayer XP")
+            .leftColor(Color.LIGHT_GRAY).rightColor(Color.LIGHT_GRAY).build());
         return super.render(graphics);
     }
 }

@@ -212,7 +212,7 @@ public interface HcimProgressionCompanionConfig extends Config
     default boolean livePackingChecksEnabled() { return false; }
 
     @ConfigItem(keyName = "sessionSkillGoalsEnabled", name = "Local skill goals", section = helpersSection,
-        description = "Live XP-gain or target-level goals with a progress bar and completion message. Local only; no website link needed. Goals reset on logout or character/profile change.", position = 64)
+        description = "Live XP-gain or target-level goals with a progress bar and completion message. Saves separately for each character and resumes after login or restarting RuneLite. Clear removes the saved goal. No website link needed.", position = 64)
     default boolean sessionSkillGoalsEnabled() { return false; }
 
     @ConfigItem(keyName = "skillGoalDesktopNotifications", name = "Also notify for skill goals", section = helpersSection,

@@ -30,7 +30,7 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.util.LinkBrowser;
 import okhttp3.Call;
 
-/** User-started, local bank preparation. No game actions and no automatic Wiki requests. */
+/** Local assignment tracking and bank preparation. No game actions or automatic Wiki requests. */
 final class SlayerPreparationHelper
 {
     private final Client client;
@@ -40,12 +40,14 @@ final class SlayerPreparationHelper
     private final AccountSnapshotService snapshots;
     private final SlayerBankPlanner planner;
     private final SlayerWikiService wiki;
+    private final SavedSlayerTasks savedTasks;
     private final JPanel root, body = SidebarControls.column();
     private final JTextArea taskText = SidebarControls.heading("Your Slayer assignment");
-    private final JTextArea taskMeta = SidebarControls.text("Log in, get an assignment, then select Start task.");
+    private final JTextArea taskMeta = SidebarControls.text("New assignments start tracking automatically. Use Start task for an existing assignment.");
     private final JTextArea gearText = SidebarControls.text("Open your normal bank after starting. Worn gear and Group Storage are never used as bank ownership.");
     private final SlayerWikiPanel wikiPanel = new SlayerWikiPanel();
     private final SlayerTaskProgress progress = new SlayerTaskProgress();
+    private final SlayerAssignmentWatch assignmentWatch = new SlayerAssignmentWatch();
     private final JTextArea status = SidebarControls.text("Local preparation only; no auto-withdraw, equipment changes or combat guidance.");
     private final JTextField title = new JTextField();
     private final JComboBox<String> styles = new JComboBox<>(new String[]{"Melee: standard", "Melee: stab", "Melee: crush", "Ranged", "Magic: single target", "Magic: burst/barrage"});
@@ -58,6 +60,10 @@ final class SlayerPreparationHelper
     private long lookupAt;
     private String identity = "", assignment = "", task = "", monster = "", area = "", style = "melee";
     private String lastTaskInput = "";
+    private String assignmentFacts="",resumeInputs="";
+    private SavedSlayerTasks.Record pendingRestore;
+    private boolean restoreChecked;
+    private int stableResumeTicks;
     private int remaining;
     private boolean active, bankKnown, marking;
     private List<SlayerBankPlanner.Owned> bank = Collections.emptyList();
@@ -72,10 +78,11 @@ final class SlayerPreparationHelper
     {
         this.client = client; this.thread = thread; this.config = config; this.items = items;
         this.snapshots = snapshots; this.planner = planner; this.wiki = wiki;
+        savedTasks=client==null || config==null ? null : SavedSlayerTasks.forClient(client,config);
         JPanel taskCard = SidebarControls.column();
         taskCard.add(taskText); SidebarControls.gap(taskCard); taskCard.add(taskMeta); SidebarControls.gap(taskCard);
-        JButton start = SidebarControls.button("Start task", "Start local preparation and the task progress bar, then offer optional Wiki facts", true);
-        JButton stop = SidebarControls.button("Stop", "Clear this session's bank data, highlights and pending lookup", false);
+        JButton start = SidebarControls.button("Start task", "Start local preparation and track assignment progress and Slayer XP earned from now; restarting resets both. Then offer optional Wiki facts", true);
+        JButton stop = SidebarControls.button("Stop", "Stop this assignment and remove its saved tracker. The next new task starts automatically", false);
         taskCard.add(SidebarControls.row(start, stop));
         body.add(SidebarControls.card("", taskCard)); SidebarControls.gap(body);
         JPanel setup = SidebarControls.column();
@@ -95,8 +102,8 @@ final class SlayerPreparationHelper
         SidebarControls.gap(body); body.add(status);
         root = SidebarControls.fold("Slayer preparation", body);
         load.setEnabled(false);
-        start.addActionListener(event -> { String chosen = style(); thread.invokeLater(() -> start(chosen)); });
-        stop.addActionListener(event -> thread.invokeLater(() -> reset("Stopped. Local bank data and highlights cleared.")));
+        start.addActionListener(event -> { String chosen = style(); long expected=generation; thread.invokeLater(() -> { if(expected==generation) start(chosen); }); });
+        stop.addActionListener(event -> { long expected=generation; thread.invokeLater(() -> { if(expected!=generation) return; clearSavedTask(); reset("Stopped for this assignment. The next new task will track automatically.",false,true); identity=identity(); restoreChecked=true; }); });
         refresh.addActionListener(event -> { String chosen = style(), selected = title.getText(); thread.invokeLater(() -> {
             if (!sameCharacter()) { reset("Select Start task for this character first."); return; }
             try
@@ -122,52 +129,130 @@ final class SlayerPreparationHelper
     SlayerTaskProgress progress() { return progress; }
     Set<Integer> highlights() { return highlighted; }
     private String style() { return new String[]{"melee", "stab", "crush", "ranged", "magic", "burst"}[Math.max(0, styles.getSelectedIndex())]; }
-    private String identity() { return config.getRSProfileKey() + ":" + client.getAccountHash(); }
+    private String identity() { return client==null || config==null ? "" : SavedSkillGoals.owner(client,config); }
     private boolean sameCharacter() { return !closed && active && client.getGameState() == GameState.LOGGED_IN && identity.equals(identity()); }
+    void experience(Skill skill, int xp)
+    {
+        if (skill != Skill.SLAYER || closed) return;
+        if (client.getGameState() != GameState.LOGGED_IN || !identity.equals(identity()))
+        {
+            progress.stop(); return;
+        }
+        long now = System.currentTimeMillis();
+        // Keep the finishing XP event even when task-count completion arrived first.
+        // A new unstarted assignment must never add XP to the previous task.
+        SlayerTaskProgress.View current = progress.view(now);
+        if (current == null || !active && client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0) return;
+        if(active && !assignmentFacts.equals(SavedSlayerTasks.assignmentKey(client)) && client.getVarpValue(VarPlayerID.SLAYER_COUNT)>0) return;
+        progress.experience(xp,now);
+        saveTask();
+    }
     void tick()
     {
         if (closed) return;
-        if (client.getGameState() != GameState.LOGGED_IN) { if (active || !identity.isEmpty()) reset("Log in and select Start task."); return; }
-        if (!identity.equals(identity())) { reset("Select Start task for this character."); identity = identity(); }
+        if (client.getGameState() != GameState.LOGGED_IN) { if (active || !identity.isEmpty()) reset("Log in to resume this character's saved task."); return; }
+        String owner=identity();
+        if(owner.isEmpty()) { if(active || !identity.isEmpty()) reset("Waiting for this character's RuneLite profile."); return; }
+        if (!identity.equals(owner)) { reset("Checking this character's saved task."); identity = owner; }
         // Read the DB names only when the game's assignment inputs change,
         // not once per frame or repeatedly for an unchanged task.
-        String inputs = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":" + client.getVarpValue(VarPlayerID.SLAYER_COUNT)
-            + ":" + client.getVarpValue(VarPlayerID.SLAYER_AREA) + ":" + client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID);
-        if (inputs.equals(lastTaskInput)) return;
+        String facts=SavedSlayerTasks.assignmentKey(client);
+        int original=client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL),points=client.getVarbitValue(VarbitID.SLAYER_POINTS);
+        int liveRemaining=client.getVarpValue(VarPlayerID.SLAYER_COUNT);
+        boolean newAssignment=assignmentWatch.observe(facts,client.getVarpValue(VarPlayerID.SLAYER_TARGET)>0 ? liveRemaining : 0);
+        if (active && (assignmentFacts.equals(facts) || liveRemaining<=0))
+            progress.experience(client.getSkillExperience(Skill.SLAYER),System.currentTimeMillis());
+        String inputs=facts+":"+liveRemaining+":"+original+":"+points;
+        if (!newAssignment && inputs.equals(lastTaskInput) && restoreChecked) { saveTask(); return; }
         SlayerSnapshot current = snapshots.readSlayer(client);
         String nextArea = assignedArea();
         String nextAssignment = current.getTargetId() + ":" + current.getCurrentTask() + ":" + nextArea;
         if (active && current.getRemaining() <= 0)
         {
+            clearSavedTask();
             progress.observe(0,System.currentTimeMillis());
-            reset("Task complete. Local bank data and highlights cleared.", true);
+            reset("Task complete. Your next assignment will track automatically.", true, true);
             identity = identity();
         }
-        else if (active && !assignment.equals(nextAssignment))
+        else if (active && (!assignment.equals(nextAssignment) || !assignmentFacts.equals(facts)))
         {
-            reset("Assignment changed or completed. Select Start task again.");
+            clearSavedTask();
+            reset("Assignment changed. Waiting for the new task to settle.",false,true);
             identity = identity();
+            restoreChecked=true;
         }
         lastTaskInput = inputs;
         boolean changed = !task.equals(current.getCurrentTask()) || remaining != current.getRemaining() || !area.equals(nextArea);
         task = current.getCurrentTask(); remaining = current.getRemaining(); area = nextArea;
+        if(newAssignment && remaining>0 && current.getTargetId()>0)
+        {
+            beginTask(style,false);
+            return;
+        }
+        if(!active && !restoreChecked) changed=resumeTask(inputs,facts,original,points,nextAssignment) || changed;
         if (active) progress.observe(remaining,System.currentTimeMillis());
         else if (remaining > 0) progress.stop();
+        saveTask();
         if (changed) publish("");
     }
     private void start(String chosen)
     {
         if (closed) return;
         tick();
-        if (client.getGameState() != GameState.LOGGED_IN || remaining <= 0) { publish("Get a Slayer assignment before starting."); return; }
+        if (client.getGameState() != GameState.LOGGED_IN || identity.isEmpty() || remaining <= 0) { publish("Log in and wait for your Slayer assignment to load before starting."); return; }
+        beginTask(chosen,true);
+    }
+    private void beginTask(String chosen,boolean offerWiki)
+    {
         generation++; cancelLookup(); clearWiki(); active = true; style = chosen;
-        progress.start(task,remaining);
+        progress.start(task,remaining,client.getSkillExperience(Skill.SLAYER));
         assignment = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":" + task + ":" + area;
+        assignmentFacts=SavedSlayerTasks.assignmentKey(client); restoreChecked=true; pendingRestore=null;
         bankKnown = false; bank = Collections.emptyList(); plan = null; marking = false; highlighted = Collections.emptySet();
         monster = SlayerWikiGuide.monsterTitle(task);
+        saveTask();
         String page = monster; long expected = generation;
-        SwingUtilities.invokeLater(() -> { if (generation == expected) { title.setText(page); requestWiki(page,expected); } });
+        SwingUtilities.invokeLater(() -> { if (generation == expected) { title.setText(page); if(offerWiki) requestWiki(page,expected); } });
         readBank(client.getItemContainer(InventoryID.BANK)); recalculate();
+        if(!offerWiki) publish("New Slayer assignment detected. Tracking task progress and XP automatically; Wiki facts remain optional.");
+    }
+    private void clearSavedTask()
+    {
+        if(savedTasks!=null) savedTasks.clear(identity);
+        pendingRestore=null;
+    }
+    private void saveTask()
+    {
+        if(savedTasks==null || !sameCharacter() || !assignmentFacts.equals(SavedSlayerTasks.assignmentKey(client))) return;
+        SlayerTaskProgress.Saved checkpoint=progress.save(System.currentTimeMillis());
+        if(checkpoint==null) return;
+        savedTasks.save(identity,new SavedSlayerTasks.Record(assignmentFacts,client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL),
+            client.getVarbitValue(VarbitID.SLAYER_POINTS),style,monster,checkpoint));
+    }
+    private boolean resumeTask(String inputs,String facts,int original,int points,String nextAssignment)
+    {
+        if(savedTasks==null) { restoreChecked=true; return false; }
+        if(pendingRestore==null) pendingRestore=savedTasks.load(identity);
+        if(pendingRestore==null) { restoreChecked=true; return false; }
+        if(inputs.equals(resumeInputs)) stableResumeTicks++; else { resumeInputs=inputs; stableResumeTicks=1; }
+        int xp=client.getSkillExperience(Skill.SLAYER);
+        // Wait for settled assignment/XP packets before rejecting a saved task.
+        if(stableResumeTicks<2 || xp<pendingRestore.progress.lastXp) return false;
+        SavedSlayerTasks.Record saved=pendingRestore;
+        restoreChecked=true;
+        if(!saved.matches(facts,original,points,remaining) || !progress.restore(saved.progress,remaining,xp))
+        {
+            clearSavedTask(); publish("Saved tracker does not match the current assignment. Select Start task to track this one."); return false;
+        }
+        pendingRestore=null; active=true; assignment=nextAssignment; assignmentFacts=facts;
+        style=saved.style; monster=saved.monster;
+        long expected=++generation; String page=monster, chosenStyle=style;
+        SwingUtilities.invokeLater(() -> {
+            if(generation!=expected) return;
+            title.setText(page); styles.setSelectedIndex(java.util.Arrays.asList("melee","stab","crush","ranged","magic","burst").indexOf(chosenStyle));
+        });
+        publish("Saved Slayer task resumed. Tracked XP is preserved; other-client XP is not backfilled. Open your bank for fresh gear checks; Wiki facts remain optional.");
+        return true;
     }
     void bankChanged(ItemContainer container)
     {
@@ -236,7 +321,13 @@ final class SlayerPreparationHelper
     }
     private void reset(String message, boolean keepCompletedProgress)
     {
+        reset(message,keepCompletedProgress,false);
+    }
+    private void reset(String message, boolean keepCompletedProgress, boolean keepAssignmentWatch)
+    {
+        if(!keepAssignmentWatch) assignmentWatch.reset();
         generation++; cancelLookup(); active = false; identity = ""; assignment = ""; bankKnown = false;
+        assignmentFacts=resumeInputs=""; pendingRestore=null; restoreChecked=false; stableResumeTicks=0;
         lastTaskInput = "";
         task = ""; monster = ""; area = ""; remaining = 0;
         bank = Collections.emptyList(); plan = null; clearWiki(); marking = false; highlighted = Collections.emptySet();

@@ -2,6 +2,7 @@ package com.hcimprogression.companion;
 
 import net.runelite.api.Experience;
 import net.runelite.api.Skill;
+import java.util.Locale;
 
 /** Client-thread owned session goal; XP, never boosted levels, proves progress. */
 final class SkillSessionGoal
@@ -28,11 +29,26 @@ final class SkillSessionGoal
     }
 
     void clear() { skill = null; announced = false; }
+    void restore(Skill savedSkill, int startXp, int targetXp, int liveXp)
+    {
+        start(savedSkill,startXp,targetXp);
+        if(liveXp<startXp || liveXp>Experience.MAX_SKILL_XP) { clear(); throw new IllegalArgumentException("Wait for this character's XP to load."); }
+        current=liveXp; announced=current>=target; // Login never replays a completion alert.
+    }
     Skill skill() { return skill; }
+    int startXp() { return start; }
+    int targetXp() { return target; }
+    int currentXp() { return current; }
     int gained() { return skill == null ? 0 : Math.max(0, current - start); }
     int required() { return skill == null ? 0 : target - start; }
     int remaining() { return skill == null ? 0 : Math.max(0, target - current); }
-    int percent() { return skill == null ? 0 : (int) Math.min(100L, 100L * gained() / required()); }
+    double percent() { return skill == null ? 0 : Math.min(100.0, 100.0 * gained() / required()); }
+    String percentText()
+    {
+        // Preserve exact XP for completion. Do not round an unfinished goal up to 100%.
+        double rounded = Math.round(percent() * 10.0) / 10.0;
+        return String.format(Locale.US, "%.1f%%", complete() ? 100.0 : Math.min(99.9, rounded));
+    }
     boolean complete() { return skill != null && current >= target; }
 
     static int target(int xp, boolean level, int amount)

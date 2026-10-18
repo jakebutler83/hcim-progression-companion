@@ -223,16 +223,21 @@ session summary**, and skill-goal desktop notifications default off.
   Edited instructions apply on the next Start/restart. Missing supplies do not
   block Next or automatically advance the route.
 - Enable **Local skill goals**, then open **SESSION GOALS & STATS**. Pick any
-  skill, choose **Gain XP this session** or **Reach a level**, enter the XP gain
+  skill, choose **Gain a set amount of XP** or **Reach a level**, enter the XP gain
   or real target level (2–99), then **Start skill goal**. Live XP events update
   the bar; boosted levels do not prove completion. Targets already reached or
   above 200M XP are rejected. Only one local skill goal is active at a time;
-  completion is announced once. **Clear skill goal** removes it. Optional
+  completion is announced once. Goals save in RuneLite's character profile and
+  automatically restore across logout, client restart and character switching.
+  The original XP baseline/target and website task ID are kept; progress catches
+  up from current XP without creating duplicate tasks or replaying completion
+  alerts. A name change does not change the account-hash/profile storage scope.
+  **Clear** removes the saved goal so it does not return. Optional
   desktop alerts follow RuneLite's notification preferences.
 - **Local session summary** records XP, real levels and completed local skill
   goals since enabling it this login. **Restart session summary** establishes a
   fresh baseline without replacing the active goal. This summary does not yet
-  count loot, boss kills or website completions. Local goals and statistics reset
+  count loot, boss kills or website completions. Session statistics reset
   on logout, character/profile switch or plugin shutdown. Nothing is uploaded
   unless the separate Skill goal website sync option is enabled (see below).
   World hopping normally preserves the session while logged in.
@@ -355,6 +360,88 @@ remains pending. Plugin Hub availability still depends on maintainer review.
 
 ## Slayer preparation
 
+### Local follow-up awaiting owner test: decimal progress and Slayer XP
+
+Skill goal percentages now show dynamic progress rounded to one decimal place
+in the sidebar and overlay. Exact XP still determines completion; unfinished
+goals cannot round up to 100.0%. The matching website tasks use the same display.
+
+The Slayer task bar also shows one-decimal assignment progress and actual
+Slayer XP gained since **Start task**, alongside the existing task credit count.
+Starting midway through a task cannot reconstruct earlier XP. This counts Slayer
+skill XP events while tracking, not combat XP or estimated XP per kill; other
+Slayer rewards received while tracking also count. Restart/Stop and changed
+assignments clear the baseline; logout/profile switches hide it until the same
+saved assignment is verified on return. A finishing XP event can update
+the brief completed display without extending its expiry. No new upload or
+privacy setting is introduced. These changes are local and not in the current
+Plugin Hub submission until the owner confirms the in-game behavior.
+
+### Local follow-up: saved skill goals (owner confirmed logout/relogin)
+
+Skill goals are no longer discarded on logout. The goal's original XP baseline,
+target, latest progress and existing website goal ID/sequence are saved through
+RuneLite's cached per-RuneScape-profile settings. Records are additionally scoped
+to the verified account hash and RuneLite profile, never just the display name.
+Only that character's goal restores after login/client restart. Transient login
+XP waits for a valid baseline rather than overwriting the record; malformed
+records are ignored. No token or credential is stored in the goal record.
+
+Restoring checks live XP, keeps one-decimal progress, and does not replay old
+completion notifications or increment a fresh session summary. Website sync stays
+opt-in, reuses the original task ID, and never reactivates a website-stopped task.
+**Clear** removes the saved goal. Disable/re-enable hides/resumes it without
+deleting it. Session statistics and manual route runs still reset at logout;
+saved route setups and pinned website goals retain their existing behavior.
+
+Goals created in older builds only existed in memory, so create the test goal
+once in this updated development client before testing logout/relogin. The owner
+confirmed that skill-goal restoration works. Other edge cases have automated
+coverage; a later release is still required.
+
+### Local follow-up: saved Slayer tasks (owner confirmed logout/relogin)
+
+Start task now checkpoints assignment-credit progress, tracked Slayer XP,
+preparation style and the editable monster page in the same verified character
+scope as skill goals. Logout/client restart hides the tracker; after the account,
+assignment and XP settle it resumes only if target/boss/area/master, streaks,
+original task size, points and remaining count still match the saved checkpoint.
+Changed/completed tasks, uncertain increases in remaining count or point changes
+while absent require Start again. This is conservative matching, not a server
+assignment UUID; unseen task history cannot be reconstructed.
+
+Stop deletes the saved tracker; logout/profile switches never delete a different
+character's record. Previously tracked XP is retained and new local gains continue
+from the live XP baseline; XP earned in another client is not backfilled. Bank
+contents/highlights and Wiki facts are not restored or fetched automatically.
+Open the bank again for current ownership checks; Wiki lookup still requires
+explicit confirmation. Old-build trackers must be started once in this version.
+Automated persistence/progress/isolation/clear/mismatch tests pass. The owner
+confirmed saved Slayer tasks work in the updated development client; individual
+Stop/profile edge cases retain automated coverage without separate in-game sign-off.
+
+### Local follow-up awaiting owner test: automatic new Slayer assignments
+
+Receiving a new assignment while logged in now starts the same compact top-left
+task bar automatically after two stable game ticks, with a fresh count and actual
+Slayer XP baseline. The new tracker uses the existing character-scoped save path.
+It clears stale bank data/highlights and pending Wiki work, never opens a Wiki
+prompt automatically and never equips, withdraws or performs game actions.
+
+Login/profile changes establish a baseline rather than treating an existing task
+as newly received. Saved tasks resume as before. **Stop** suppresses the current
+assignment, including after relogging; a subsequent new assignment starts again.
+Ordinary kills, extensions/count increases and point spending alone do not restart
+the tracker. Same-monster tasks are detected after an observed empty assignment
+or a changed assignment fingerprint (including streaks). An identical replacement
+with no observable distinguishing state is not guessed; Start remains available.
+
+The full automated suite has 191 tests, zero failures/errors and one optional
+live-Wiki request skipped. Coverage includes initial-login packets, repeated tasks,
+replacements, intermediate packets, Stop/count behavior, profile resets, independent
+XP baselines and saving a new tracker. The new automatic-start behavior still
+requires the owner's in-game test and is not published yet.
+
 ### Sidebar / task tracker release follow-up
 
 The owner confirmed the original development Slayer preparation flow worked on
@@ -370,8 +457,9 @@ publication on October 18. Normal Plugin Hub availability still requires review.
   remaining assignment and offers a separately confirmed Wiki lookup. Counts are
   assignment progress since Start, not lifetime boss KC or a literal kill count:
   expeditious/slaughter effects can change the credit awarded per kill. Task
-  extensions preserve previous progress; Stop/logout/profile/task changes clear
-  the tracker. Completion is briefly shown before the tracker disappears.
+  extensions preserve previous progress; Stop or changed/completed assignments
+  clear the saved tracker. Logout/profile changes hide it and safely resume the
+  same saved task on return. Completion is briefly shown before it disappears.
 - Wiki stats, explicit elemental weaknesses and possible locations load together.
   The exact variant is selected and rendered immediately; both facts sections
   open after a successful lookup. Empty selectors and oversized empty text areas

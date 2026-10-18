@@ -227,7 +227,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         routeHelper = new RoutineRouteHelper(configManager, config, syncService, gson, clientThread);
         SkillGoalSync goalSync = new SkillGoalSync(config::skillGoalSyncEnabled,(name,token,api,goal,callback) ->
             syncService.syncSkillGoal(api,token,name,goal,(result,error) -> clientThread.invokeLater(() -> callback.accept(result,error))));
-        sessionGoals = new SessionGoalHelper(client, clientThread, config, notifier,goalSync);
+        sessionGoals = new SessionGoalHelper(client, clientThread, config, notifier,goalSync,SavedSkillGoals.forClient(client,configManager));
         slayerPreparation = new SlayerPreparationHelper(client, clientThread, configManager, itemManager,
             accountSnapshotService, SlayerBankPlanner.load(gson), new SlayerWikiService(httpClient, gson));
         slayerBankOverlay = new SlayerBankOverlay(client, slayerPreparation);
@@ -848,6 +848,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     {
         SlayerPreparationHelper helper = slayerPreparation;
         if (helper != null) clientThread.invokeLater(() -> helper.reset("Profile changed. Select Start task again."));
+        clientThread.invokeLater(() -> { if(sessionGoals!=null) sessionGoals.reset(); });
         SettingsPresetController presets = settingsPresets;
         if (presets != null) presets.initialize();
     }
@@ -1159,6 +1160,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     {
         socialPresenceService.updateSkillActivity(event.getSkill(), event.getXp(), System.currentTimeMillis());
         if (sessionGoals != null) sessionGoals.changed(event.getSkill(), event.getXp());
+        if (slayerPreparation != null) slayerPreparation.experience(event.getSkill(), event.getXp());
     }
 
     @Subscribe

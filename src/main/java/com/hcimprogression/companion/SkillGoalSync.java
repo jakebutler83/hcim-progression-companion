@@ -22,15 +22,25 @@ final class SkillGoalSync
     private volatile String status = "Website sync off · goals stay local";
 
     SkillGoalSync(BooleanSupplier enabled,Sender sender) { this.enabled = enabled; this.sender = sender; }
-    void connection(String nextName,String nextToken,String nextApi)
+    boolean connection(String nextName,String nextToken,String nextApi)
     {
         String next = nextName+":"+nextToken+":"+nextApi;
-        if (identity.equals(next)) return;
+        if (identity.equals(next)) return false;
         generation++; pending.clear(); current = null; savedId = ""; savedSequence = 0; busy = false; nextSendAt = nextProgressAt = 0;
         name = nextName; token = nextToken; api = nextApi; identity = next;
         status = enabled.getAsBoolean() ? "Start a goal to sync this character" : "Website sync off · goals stay local";
+        return true;
     }
     void reset() { connection("","",""); }
+    Goal snapshot() { return current==null ? null : current.copy(); }
+    void restore(Goal saved)
+    {
+        if (!SavedSkillGoals.valid(saved)) return;
+        current=saved.copy(); current.sequence++;
+        if ("active".equals(current.status) && current.currentXp>=current.targetXp) current.status="completed";
+        // Keep the original website UUID. A stopped website goal stays stopped.
+        if (!"stopped".equals(current.status)) request();
+    }
     void start(String skill,boolean level,int levelNumber,int xp,int target)
     {
         stop(); current = new Goal(); current.id = UUID.randomUUID().toString(); current.skill = skill;

@@ -25,6 +25,9 @@ public class ProgressionPanelTest
             for (String title : new String[]{"Start goal","Clear","Restart summary","Pause 15 min","Resume alerts"})
                 assertTrue(values.stream().filter(JButton.class::isInstance).map(JButton.class::cast).anyMatch(button -> title.equals(button.getText())));
             assertNull(helper.view()); assertFalse(helper.muted(0));
+            javax.swing.JProgressBar skillBar = components(helper.panel()).stream()
+                .filter(javax.swing.JProgressBar.class::isInstance).map(javax.swing.JProgressBar.class::cast).findFirst().get();
+            assertEquals(1000,skillBar.getMaximum());
         });
     }
     @Test public void recentCompletionsEscapeMarkupAndClearOnSessionChange() throws Exception

@@ -55,4 +55,31 @@ public class SkillGoalSyncTest
         Harness h = new Harness();h.sync.start("Mining",false,0,1000,2000);h.sync.tick(0);h.accept(0,"active");
         h.sync.tick(130000);h.sync.tick(260000);assertEquals(1,h.sent.size());
     }
+
+    @Test public void relogResumesTheOriginalWebsiteGoalWithoutCreatingAnotherTask()
+    {
+        Harness h=new Harness(); h.sync.start("Mining",false,0,1000,2000); h.sync.progress(1456,false);
+        SkillGoalSync.Goal saved=h.sync.snapshot();
+        h.sync.reset(); h.sync.connection("HP Shooter","fake-token","fake-api"); h.sync.restore(saved); h.sync.tick(3000);
+        assertEquals(1,h.sent.size()); assertEquals(saved.id,h.sent.get(0).id);
+        assertEquals(1000,h.sent.get(0).startXp); assertEquals(1456,h.sent.get(0).currentXp);
+        assertTrue(h.sent.get(0).sequence>saved.sequence);
+        assertEquals(saved.sequence, saved.copy().sequence);
+    }
+
+    @Test public void restoringAWebsiteStoppedGoalDoesNotResurrectItsUpload()
+    {
+        Harness h=new Harness(); SkillGoalSync.Goal saved=SavedSkillGoalsTest.goal(); saved.status="stopped";
+        h.sync.restore(saved); h.sync.progress(saved.currentXp+1,false); h.sync.tick(3000);
+        assertTrue(h.sent.isEmpty()); assertEquals("stopped",h.sync.snapshot().status);
+    }
+
+    @Test public void lateRequestsFromBeforeLogoutCannotChangeTheRestoredGoal()
+    {
+        Harness h=new Harness(); h.sync.start("Mining",false,0,1000,2000); h.sync.tick(0);
+        SkillGoalSync.Goal saved=h.sync.snapshot(); h.sync.reset();
+        h.sync.connection("HP Shooter","fake-token","fake-api"); h.sync.restore(saved);
+        h.accept(0,"stopped"); assertEquals("active",h.sync.snapshot().status);
+        h.sync.tick(3000); assertEquals(2,h.sent.size()); assertEquals(saved.id,h.sent.get(1).id);
+    }
 }

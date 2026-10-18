@@ -71,6 +71,8 @@ final class ProgressionOverlay extends OverlayPanel
             wrapped(skill.title); wrapped(skill.progress);
             ProgressBarComponent bar = new ProgressBarComponent();
             bar.setMaximum(100); bar.setValue(skill.percent); bar.setForegroundColor(skill.complete ? Color.GREEN : GOLD);
+            bar.setLabelDisplayMode(ProgressBarComponent.LabelDisplayMode.TEXT_ONLY);
+            bar.setCenterLabel(skill.percentage);
             panelComponent.getChildren().add(bar);
         }
         return super.render(graphics);
