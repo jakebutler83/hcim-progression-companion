@@ -77,7 +77,7 @@ final class RoutineRouteHelper
         });
         local.addActionListener(event -> { if (saveLocal()) message("Saved for this RuneScape profile and character. Website unchanged."); });
         start.addActionListener(event -> {
-            if (!config.routineRoutesEnabled()) { message("Enable Local route helper in plugin settings first."); return; }
+            if (!config.routineRoutesEnabled()) { message("Set In-game helpers to On in plugin settings, or enable Local route helper under Advanced: helpers."); return; }
             if (!saveLocal()) return;
             run.start(plan); updateView();
         });
@@ -142,7 +142,7 @@ final class RoutineRouteHelper
     private void sync(boolean save)
     {
         if (busy) return;
-        if (!config.routineRoutesSyncEnabled() || session.isEmpty() || !session.equals(editorSession) || token.isEmpty()) { message("Link this character and enable Route setup sync in settings. Local routes work without it."); return; }
+        if (!config.routineRoutesSyncEnabled() || session.isEmpty() || !session.equals(editorSession) || token.isEmpty()) { message("Link this character and set Account tracking to On, or enable Route setup sync under Advanced: sync. Local routes work offline."); return; }
         if (save && !loaded.contains(selectedKind)) { message("Load from website once before uploading, so newer saved edits are not overwritten."); return; }
         if (save && !saveLocal()) return;
         if (!save && (!items.getText().equals(plan.items) || !stops.getText().equals(plan.stops))
@@ -195,7 +195,7 @@ final class RoutineRouteHelper
         if (!config.livePackingChecksEnabled() || !config.routineRoutesEnabled() || session.isEmpty() || !session.equals(editorSession))
         {
             packing.setText("Packing checks off"); packingRows.removeAll();
-            packingRows.add(SidebarControls.text("Enable Local route helper and Live packing checks in settings."));
+            packingRows.add(SidebarControls.text("Set In-game helpers to On for routes and packing checks. Individual choices are under Advanced: helpers."));
         }
         else
         {

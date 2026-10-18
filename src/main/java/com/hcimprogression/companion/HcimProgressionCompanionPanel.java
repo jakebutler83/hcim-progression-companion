@@ -62,11 +62,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel collectionCaptureValue = new JLabel("Open clue pages");
     private final JLabel clueCountsValue = new JLabel("—");
     private final JLabel tcgValue = new JLabel("Disabled");
-    private final JLabel personalBestValue = new JLabel("Off · enable Personal best sync");
+    private final JLabel personalBestValue = new JLabel("Off · account tracking");
     private final JLabel completionDisplayValue = new JLabel("Off");
     private final JLabel pinnedGoalValue = new JLabel("Off");
     private final JLabel routineReminderValue = new JLabel("Off");
-    private final JLabel pinnedGoalHint = createHint("Pin your next task from the website dashboard, then enable Pinned website goal in plugin settings.");
+    private final JLabel pinnedGoalHint = createHint("Pin your next task on the website, then set Account tracking to On. Individual sync choices are under Advanced: sync.");
     private final JPanel recentCompletionsBody = createVerticalPanel(CARD_BACKGROUND);
     private final JButton reminderPreviewButton = new JButton("Preview local reminder");
     private final JLabel playerValue = new JLabel("—");
@@ -184,7 +184,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         syncDetails.add(personalBestValue);
         personalBestValue.setFont(personalBestValue.getFont().deriveFont(10f));
         personalBestValue.setForeground(MUTED);
-        personalBestValue.setToolTipText("Enable Personal best sync in plugin settings. Boss PBs come from RuneLite Chat Commands. Quest speedruns are captured from their game result screen.");
+        personalBestValue.setToolTipText("Set Account tracking to On, or enable Personal best sync under Advanced: sync. Boss PBs come from RuneLite Chat Commands; quest speedruns come from their game result screen.");
         accountBody.add(Box.createVerticalStrut(4));
         accountBody.add(createCollapsibleCard("SYNC DETAILS", MUTED, syncDetails, false));
         accountBody.add(Box.createVerticalStrut(8));
@@ -205,13 +205,13 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         progressionBody.add(Box.createVerticalStrut(7));
         styleButton(reminderPreviewButton, false);
         reminderPreviewButton.setEnabled(false);
-        reminderPreviewButton.setToolTipText("Enable Local farm / birdhouse reminders in plugin settings, then log into RuneScape to preview the overlay. No timers are changed.");
+        reminderPreviewButton.setToolTipText("Set In-game helpers to On, then log in to preview a local reminder. Individual choices are under Advanced: helpers. No timers are changed.");
         reminderPreviewButton.addActionListener(event -> reminderPreviewHandler.run());
         progressionBody.add(reminderPreviewButton);
         progressionBody.add(Box.createVerticalStrut(5));
         progressionBody.add(createHint("All displays are optional. Local routines use Time Tracking; no website connection is needed."));
         progressionBody.add(Box.createVerticalStrut(6));
-        progressionBody.add(createHint("Mute quests, diaries, or milestones separately in plugin settings. Muted completions still appear below."));
+        progressionBody.add(createHint("Mute quests, diaries or milestones under Advanced: helpers. Muted completions still appear below."));
         progressionBody.add(Box.createVerticalStrut(6));
         showRecentCompletions(java.util.Collections.emptyList());
         progressionBody.add(createCollapsibleCard("RECENT COMPLETIONS", SUCCESS, recentCompletionsBody, false));
@@ -277,7 +277,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         recentCompletionsBody.add(createHint("Last 10 new completions this session. Clears on logout or character change; never uploaded."));
         if (recent.isEmpty())
         {
-            recentCompletionsBody.add(createHint("No new completions yet. Enable completion pop-ups and automatic snapshots; old achievements stay silent."));
+            recentCompletionsBody.add(createHint("No new completions yet. Set Account tracking and In-game helpers to On; old achievements stay silent."));
         }
         for (ProgressionFeedback.Recent entry : recent.subList(0, Math.min(10, recent.size())))
         {

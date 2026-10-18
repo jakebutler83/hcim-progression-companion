@@ -317,6 +317,42 @@ locations, complete it, and confirm it leaves Active tasks. Stop another goal
 on the website and gain more XP: it must stay stopped there. Switch accounts
 during an upload; the new character must never inherit the old goal.
 
+## Simplified settings
+
+The initial settings screen now has three everyday selectors instead of the
+long checklist. Choose **On**, **Off**, or **Custom**:
+
+- **Account tracking:** account/Collection Log snapshots, loot, PBs, pinned
+  tasks, route setup sync, skill-goal sync and TCG collection sync.
+- **In-game helpers:** completion pop-ups, local routine reminders, route
+  helper, packing checks, skill goals and session summaries. This does not
+  enable website uploads. Completion pop-ups still require account sync.
+- **Desktop alerts:** completion, routine and skill-goal notifications, using
+  RuneLite's notification preferences. Leave off to avoid duplicate routine
+  sounds when Time Tracking already notifies you.
+
+**Optional sharing** is collapsed: personal bank, Group Storage and exact
+location remain independent opt-ins. **Social / clan** combines presence,
+roster/ranks/worlds, clan competition XP and calendar syncing behind one
+explicitly warned opt-in. No sharing is enabled by default.
+
+**Advanced: sync**, **Advanced: helpers**, and **Connection** are collapsed.
+Every original key/default is retained. Existing individual choices are
+summarized as On/Off/Custom without being changed on upgrade or profile switch.
+Choosing a preset explicitly changes its included flags; detailed edits update
+its summary. Muted pop-up categories, display preferences, API URL and link
+credentials are never changed by a preset. Website privacy controls still apply.
+
+Owner test: inspect saved settings after upgrading; verify mixed choices show
+Custom. Choose Account tracking On and confirm bank/location/Group Storage/social
+choices do not change. Test On/Off for helpers and desktop alerts, then change
+one advanced option and verify Custom. Switch RuneLite configuration profiles
+and confirm no sharing is newly enabled. No game input is automated.
+
+Publication was requested on October 18, 2026 before the owner settings-screen
+test. All 115 automated companion tests pass; interactive settings verification
+remains pending. Plugin Hub availability still depends on maintainer review.
+
 ## Plugin Hub releases
 
 ### Pending Barrows loot regression check

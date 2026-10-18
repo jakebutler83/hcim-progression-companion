@@ -44,6 +44,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.events.PluginMessage;
 import net.runelite.client.plugins.Plugin;
@@ -113,6 +114,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private ProgressionOverlay progressionOverlay;
     private RoutineRouteHelper routeHelper;
     private SessionGoalHelper sessionGoals;
+    private volatile SettingsPresetController settingsPresets;
     private boolean packingDirty = true;
     private String packingCharacter = "";
     private boolean feedbackRunning;
@@ -208,6 +210,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        settingsPresets = new SettingsPresetController(
+            key -> configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, key),
+            (key, value) -> configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, key, value),
+            () -> configManager.getProfile() == null ? "" : Long.toString(configManager.getProfile().getId())
+        );
+        settingsPresets.initialize();
         feedbackRunning = true;
         packingDirty = true; packingCharacter = "";
         lastFeedbackPanelStatus = "";
@@ -316,6 +324,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void shutDown()
     {
+        settingsPresets = null;
         resetCollectionUnlocks();
         if (personalBestSync != null) personalBestSync.reset();
         feedbackRunning = false;
@@ -799,6 +808,12 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
         if (HcimProgressionCompanionConfig.GROUP.equals(event.getGroup()))
         {
+            SettingsPresetController presets = settingsPresets;
+            if (presets != null && event.getProfile() == null)
+            {
+                if (presets.updating()) return;
+                presets.changed(event.getKey(), event.getNewValue());
+            }
             clientThread.invokeLater(() -> { packingDirty = true; personalBestsDirty = true; refreshFeedbackSession(); });
         }
         // RuneLite Time Tracking owns the authoritative per-profile farming
@@ -810,6 +825,13 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             farmRunSyncPending = true;
         }
+    }
+
+    @Subscribe
+    public void onProfileChanged(ProfileChanged event)
+    {
+        SettingsPresetController presets = settingsPresets;
+        if (presets != null) presets.initialize();
     }
 
     @Subscribe
@@ -2285,7 +2307,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         boolean completions = config.progressionPopupsEnabled(), auto = config.automaticAccountSyncEnabled();
         boolean pinned = config.pinnedGoalEnabled(), routines = config.routineRemindersEnabled();
         String status = !loggedIn ? "Log into RuneScape to use the in-game displays."
-            : !pinned ? "Pin a task on the website dashboard, then enable Pinned website goal in plugin settings."
+            : !pinned ? "Pin a task on the website, then set Account tracking to On (or enable Pinned website goal under Advanced: sync)."
             : deviceToken().isEmpty() ? "Link this character to the website to display its pinned task." : goalReadStatus;
         String fingerprint = completions + ":" + auto + ":" + pinned + ":" + routines + ":" + loggedIn + ":" + status
             + ":" + progressionFeedback.recentRevision();

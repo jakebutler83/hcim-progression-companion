@@ -68,7 +68,7 @@ final class SessionGoalHelper
         JPanel alerts = SidebarControls.column(); alerts.add(muteStatus); SidebarControls.gap(alerts); alerts.add(mute); SidebarControls.gap(alerts); alerts.add(unmute);
         panel.add(SidebarControls.fold("Notifications",alerts)); SidebarControls.gap(panel);
         JPanel sync = SidebarControls.column(); sync.add(syncStatus); SidebarControls.gap(sync);
-        JButton send = SidebarControls.button("Send current goal","Send or retry the current goal; requires Skill goal website sync",false); sync.add(send);
+        JButton send = SidebarControls.button("Send current goal","Send or retry the current goal; enable Account tracking or advanced Skill goal website sync",false); sync.add(send);
         send.addActionListener(event -> { if (website != null) clientThread.invokeLater(() -> { website.request(); publish(""); }); });
         panel.add(SidebarControls.fold("Website sync",sync));
         mute.addActionListener(event -> clientThread.invokeLater(() -> { muteUntil = System.currentTimeMillis() + 15 * 60_000L; popupUntil = 0; publish(""); }));
@@ -85,7 +85,7 @@ final class SessionGoalHelper
             String expected = session; long revision = generation;
             clientThread.invokeLater(() -> {
                 if (!current(expected, revision)) return;
-                if (!config.sessionSkillGoalsEnabled()) { publish("Enable Local skill goals in plugin settings first."); return; }
+                if (!config.sessionSkillGoalsEnabled()) { publish("Set In-game helpers to On, or enable Local skill goals under Advanced: helpers."); return; }
                 try
                 {
                     int xp = client.getSkillExperience(selected);
@@ -156,8 +156,8 @@ final class SessionGoalHelper
         long revision = generation;
         int percent = goal.percent();
         String text = !error.isEmpty() ? error : session.isEmpty()
-            ? "Enable Local skill goals and log in. Goals reset on logout or character/profile change."
-            : !config.sessionSkillGoalsEnabled() ? "Enable Local skill goals in settings. No website link required."
+            ? "Set In-game helpers to On and log in. Goals reset on logout or character/profile change."
+            : !config.sessionSkillGoalsEnabled() ? "Set In-game helpers to On. Individual choices are under Advanced: helpers; no website link required."
             : goal.skill() == null ? "Choose a skill and XP gain or target level. Local only; no website link required."
             : label + " — " + format(goal.gained()) + " / " + format(goal.required()) + " XP earned · "
                 + (goal.complete() ? "Goal complete!" : format(goal.remaining()) + " XP remaining");
@@ -165,7 +165,7 @@ final class SessionGoalHelper
         else view = new View(label, format(goal.gained()) + " / " + format(goal.required()) + " XP · " + percent + "%",
             percent, goal.complete(), popupUntil);
         long now = System.currentTimeMillis();
-        String stats = !summary.active() ? "Enable Local session summary. Resets on logout; nothing is uploaded."
+        String stats = !summary.active() ? "Set In-game helpers to On for a local session summary. Resets on logout; nothing is uploaded."
             : String.format(Locale.US, "%,d XP · %,d levels\n%,d skill goals · %d min", summary.xp(), summary.levels(), summary.goals(), summary.minutes(now));
         String muteText = muted(now) ? "Pop-ups muted · " + Math.max(1, (muteUntil - now + 59_999L) / 60_000L) + " min" : "Pop-ups unmuted";
         SwingUtilities.invokeLater(() -> {

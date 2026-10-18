@@ -52,7 +52,7 @@ final class SkillGoalSync
     }
     void request()
     {
-        if (!enabled.getAsBoolean()) { status = "Enable Skill goal website sync to send"; return; }
+        if (!enabled.getAsBoolean()) { status = "Set Account tracking to On to sync"; return; }
         if (name.isEmpty() || token.isEmpty()) { status = "Link this character before syncing"; return; }
         if (current == null) { status = "Start a new local goal first"; return; }
         enqueue();
