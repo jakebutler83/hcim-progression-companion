@@ -33,20 +33,41 @@ final class SlayerWikiService
             {
                 try (Response reply = response)
                 {
-                    if (!reply.isSuccessful() || reply.body() == null || !SlayerWikiGuide.HOST.equals(reply.request().url().host())) throw new IOException();
+                    if (!reply.isSuccessful()) throw new IllegalArgumentException("Wiki returned HTTP " + reply.code() + ". Open the Wiki page or try again later.");
+                    if (reply.body() == null || !SlayerWikiGuide.HOST.equals(reply.request().url().host())) throw new IOException();
                     okio.BufferedSource source = reply.body().source();
-                    if (source.request(500_001)) throw new IOException();
+                    if (source.request(500_001)) throw new IllegalArgumentException("Wiki response exceeded the safe size limit. Use Open Wiki page.");
                     JsonObject json = gson.fromJson(source.getBuffer().readUtf8(), JsonObject.class);
-                    JsonObject pages = json.getAsJsonObject("query").getAsJsonObject("pages");
-                    JsonObject page = pages.entrySet().iterator().next().getValue().getAsJsonObject();
-                    JsonObject revision = page.getAsJsonArray("revisions").get(0).getAsJsonObject();
-                    JsonElement content = revision.getAsJsonObject("slots").getAsJsonObject("main").get("*");
-                    done.accept(SlayerWikiGuide.parse(page.get("title").getAsString(), revision.get("revid").getAsLong(), content.getAsString()), null);
+                    done.accept(parseResponse(json), null);
                 }
                 catch (IllegalArgumentException error) { done.accept(null, error.getMessage()); }
-                catch (Exception error) { done.accept(null, "No usable monster page returned. Try the exact Wiki monster name, not a task category."); }
+                catch (Exception error) { done.accept(null, "Wiki returned an unreadable response. Open the Wiki page or retry the exact monster name."); }
             }
         });
         return call;
+    }
+    static SlayerWikiGuide parseResponse(JsonObject json)
+    {
+        if (json == null || json.has("error") || !json.has("query")) throw new IllegalArgumentException("Wiki could not return this page. Try the exact monster name.");
+        JsonElement pages = json.getAsJsonObject("query").get("pages");
+        if (pages == null || pages.isJsonNull()) throw new IllegalArgumentException("Wiki returned no monster page.");
+        JsonObject page;
+        if (pages.isJsonArray())
+        {
+            if (pages.getAsJsonArray().size() == 0) throw new IllegalArgumentException("Wiki returned no monster page.");
+            page = pages.getAsJsonArray().get(0).getAsJsonObject();
+        }
+        else
+        {
+            if (pages.getAsJsonObject().entrySet().isEmpty()) throw new IllegalArgumentException("Wiki returned no monster page.");
+            page = pages.getAsJsonObject().entrySet().iterator().next().getValue().getAsJsonObject();
+        }
+        if (page.has("missing") || !page.has("revisions") || page.getAsJsonArray("revisions").size() == 0)
+            throw new IllegalArgumentException("No Wiki page found. Use an exact monster name, not a Slayer category.");
+        JsonObject revision = page.getAsJsonArray("revisions").get(0).getAsJsonObject();
+        JsonObject main = revision.getAsJsonObject("slots").getAsJsonObject("main");
+        JsonElement content = main.has("*") ? main.get("*") : main.get("content");
+        if (content == null || content.isJsonNull()) throw new IllegalArgumentException("Wiki page content was unavailable.");
+        return SlayerWikiGuide.parse(page.get("title").getAsString(), revision.get("revid").getAsLong(), content.getAsString());
     }
 }

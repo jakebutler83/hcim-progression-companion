@@ -52,7 +52,8 @@ final class SessionGoalHelper
     SessionGoalHelper(Client client, ClientThread clientThread, HcimProgressionCompanionConfig config, Notifier notifier, SkillGoalSync website)
     {
         this.client = client; this.clientThread = clientThread; this.config = config; this.notifier = notifier; this.website = website;
-        SidebarControls.stretch(skill); SidebarControls.stretch(mode); SidebarControls.stretch(amount); SidebarControls.stretch(progress);
+        SidebarControls.field(skill); SidebarControls.field(mode); SidebarControls.field(amount); SidebarControls.stretch(progress);
+        progress.setFont(SidebarControls.FONT.deriveFont(11f));
         skill.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE,30)); mode.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE,30));
         amount.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE,28)); progress.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE,22));
         panel.add(SidebarControls.text("Choose skill and target")); panel.add(skill); SidebarControls.gap(panel); panel.add(mode);

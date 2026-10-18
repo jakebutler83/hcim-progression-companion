@@ -355,6 +355,53 @@ remains pending. Plugin Hub availability still depends on maintainer review.
 
 ## Slayer preparation
 
+### Sidebar / task tracker release follow-up
+
+The owner confirmed the original development Slayer preparation flow worked on
+October 18, then requested clearer Wiki facts, a polished sidebar and a compact
+in-game task progress bar. The owner tested the refreshed UI, showed populated
+Wiki facts and confirmed the subsequent scroll fix works, then approved
+publication on October 18. Normal Plugin Hub availability still requires review.
+
+- **Play / Account / Details** navigation keeps Slayer, routes and session goals
+  together, with linking/sync and diagnostic details on separate pages. Uses
+  readable system fonts, consistent card/button styling and width-aware notes.
+- **Start task** starts a compact, movable top-left progress bar from the current
+  remaining assignment and offers a separately confirmed Wiki lookup. Counts are
+  assignment progress since Start, not lifetime boss KC or a literal kill count:
+  expeditious/slaughter effects can change the credit awarded per kill. Task
+  extensions preserve previous progress; Stop/logout/profile/task changes clear
+  the tracker. Completion is briefly shown before the tracker disappears.
+- Wiki stats, explicit elemental weaknesses and possible locations load together.
+  The exact variant is selected and rendered immediately; both facts sections
+  open after a successful lookup. Empty selectors and oversized empty text areas
+  are hidden; loading/failure/retry messages appear beside the lookup controls.
+  HTTP/API failures do not become blank successful responses. No new sharing
+  setting or paid service is introduced; every lookup still requires confirmation.
+- Read-only live text no longer moves the sidebar to its invisible caret.
+  Unchanged status text does not replace its document. Manual scrolling and
+  normal caret behavior in editable packing lists are preserved. This fixes a
+  reproduced standalone scroll regression reported after the owner saw the new
+  UI and populated Wiki facts. The owner confirmed the refreshed client now
+  scrolls normally.
+- 153 automated tests pass, including an explicitly enabled live public Greater
+  demon lookup, API payload shapes, first-variant rendering, layout at narrow
+  widths, page switching, task progress/extension/completion/reset and live
+  status scroll stability/editor behavior cases.
+  Standalone offscreen previews render only Swing widgets, never a game client.
+  Optional previews stay under `.runelite/progression-path-previews/`.
+- Regression checklist: Play → Slayer preparation → Start task, allow the optional Wiki
+  lookup, verify the correct level/variant shows stats, weakness and locations,
+  and check the top-left bar changes as assignment count drops. Decline a lookup
+  and verify local bank preparation still works; use Load Wiki facts to retry.
+  Confirm Stop/character switching clears the bar, and Account/Details pages
+  retain their connection, sync and reminder-preview controls. The owner has
+  confirmed the general UI/Wiki flow and scroll fix, but has not individually
+  signed off every task-extension, completion and profile-switch edge case.
+  No website/backend/iOS code change is required.
+
+### Preparation behavior
+
 The collapsed **SLAYER PREPARATION** panel is a user-started preparation
 helper, not a combat simulator. Select **Start task** to read the game's Slayer
 assignment, remaining count and any area restriction. Common task labels are
@@ -412,11 +459,12 @@ source page. Stop, complete/change the task and switch characters/profiles;
 highlights and old private data must clear. Check a failed/cancelled lookup
 does not freeze the client or replace another character's information.
 
-All 138 automated companion tests pass with Java 11 compatibility. Automated
-tests are not in-game verification. The owner requested publication on October
-18, 2026 before testing this new panel; its real assignment/bank/overlay behavior
-remains unverified. Normal-client availability depends on Plugin Hub maintainer
-review. No website backend or iOS change is required for this plugin-only panel.
+All 153 automated companion tests pass with Java 11 compatibility. Automated
+tests are not a substitute for in-game verification. The owner subsequently
+tested the development panel, populated Wiki facts and confirmed the scroll
+regression is fixed. The more detailed edge-case checklist above remains useful.
+Normal-client availability depends on Plugin Hub maintainer review. No website
+backend or iOS change is required for this plugin-only panel.
 
 ## Plugin Hub releases
 

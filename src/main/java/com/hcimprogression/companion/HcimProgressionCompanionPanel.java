@@ -21,6 +21,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
@@ -34,9 +35,9 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private static final Color GOLD = new Color(247, 201, 72);
     private static final Color BLUE = new Color(93, 173, 226);
     private static final Color MUTED = new Color(165, 165, 165);
-    private static final Color CARD_BACKGROUND = new Color(31, 31, 31);
-    private static final Color INPUT_BACKGROUND = new Color(24, 24, 24);
-    private static final Color DIVIDER = new Color(58, 58, 58);
+    private static final Color CARD_BACKGROUND = SidebarControls.SURFACE;
+    private static final Color INPUT_BACKGROUND = SidebarControls.INPUT;
+    private static final Color DIVIDER = SidebarControls.LINE;
     private static final String WEBSITE_URL = "https://progressionpath.netlify.app";
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
 
@@ -66,7 +67,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel completionDisplayValue = new JLabel("Off");
     private final JLabel pinnedGoalValue = new JLabel("Off");
     private final JLabel routineReminderValue = new JLabel("Off");
-    private final JLabel pinnedGoalHint = createHint("Pin your next task on the website, then set Account tracking to On. Individual sync choices are under Advanced: sync.");
+    private final JTextArea pinnedGoalHint = createHint("Pin your next task on the website, then set Account tracking to On. Individual sync choices are under Advanced: sync.");
     private final JPanel recentCompletionsBody = createVerticalPanel(CARD_BACKGROUND);
     private final JButton reminderPreviewButton = new JButton("Preview local reminder");
     private final JLabel playerValue = new JLabel("—");
@@ -76,7 +77,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private final JLabel planeValue = new JLabel("—");
     private final JTextField linkCodeField = new JTextField();
     private final JButton connectButton = new JButton("Link Account");
-    private final JButton websiteButton = new JButton("Open Progression Path Website");
+    private final JButton websiteButton = new JButton("Open website");
     private final JButton accountSyncButton = new JButton("Sync Account Now");
     private boolean accountSyncCooldown;
 
@@ -105,6 +106,9 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
         content.add(createHeader());
         content.add(Box.createVerticalStrut(8));
+        JPanel accountPage = createVerticalPanel(ColorScheme.DARK_GRAY_COLOR);
+        JPanel playPage = createVerticalPanel(ColorScheme.DARK_GRAY_COLOR);
+        JPanel detailsPage = createVerticalPanel(ColorScheme.DARK_GRAY_COLOR);
 
         JPanel connectionBody = createVerticalPanel(CARD_BACKGROUND);
         connectionBody.add(createHint("New here? Link this RuneScape character to your private Progression Path account."));
@@ -129,6 +133,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         connectionBody.add(Box.createVerticalStrut(5));
 
         linkCodeField.setToolTipText("One-time code generated in Website Settings");
+        SidebarControls.field(linkCodeField);
         linkCodeField.setBackground(INPUT_BACKGROUND);
         linkCodeField.setForeground(Color.WHITE);
         linkCodeField.setCaretColor(Color.WHITE);
@@ -154,8 +159,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         connectionBody.add(connectButton);
         connectionBody.add(Box.createVerticalStrut(6));
         connectionBody.add(createHint("Codes are one-time use and connect only the character logged into this RuneLite client."));
-        content.add(createCollapsibleCard("LINK TO WEBSITE", BLUE, connectionBody, true));
-        content.add(Box.createVerticalStrut(8));
+        accountPage.add(createCollapsibleCard("WEBSITE CONNECTION", BLUE, connectionBody, true));
+        accountPage.add(Box.createVerticalStrut(8));
 
         JPanel accountBody = createVerticalPanel(CARD_BACKGROUND);
         configureValueLabel(accountSyncStatusValue, SwingConstants.CENTER);
@@ -198,8 +203,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         accountSyncButton.setToolTipText("Upload skills, quests, captured clue totals, and captured Collection Log items");
         accountSyncButton.addActionListener(e -> accountSyncHandler.run());
         accountBody.add(accountSyncButton);
-        content.add(createCollapsibleCard("ACCOUNT SYNC", SUCCESS, accountBody, true));
-        content.add(Box.createVerticalStrut(8));
+        accountPage.add(createCollapsibleCard("ACCOUNT SYNC", SUCCESS, accountBody, true));
+        accountPage.add(Box.createVerticalStrut(8));
 
         JPanel progressionBody = createVerticalPanel(CARD_BACKGROUND);
         progressionBody.add(createRow("Completions", completionDisplayValue));
@@ -220,19 +225,19 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         progressionBody.add(Box.createVerticalStrut(6));
         showRecentCompletions(java.util.Collections.emptyList());
         progressionBody.add(createCollapsibleCard("RECENT COMPLETIONS", SUCCESS, recentCompletionsBody, false));
-        content.add(createCollapsibleCard("IN-GAME DISPLAYS", GOLD, progressionBody, false));
-        content.add(Box.createVerticalStrut(8));
+        detailsPage.add(createCollapsibleCard("IN-GAME DISPLAYS", GOLD, progressionBody, false));
+        detailsPage.add(Box.createVerticalStrut(8));
         if (slayerPanel != null) {
-            content.add(slayerPanel);
-            content.add(Box.createVerticalStrut(8));
+            playPage.add(slayerPanel);
+            playPage.add(Box.createVerticalStrut(10));
         }
         if (routePanel != null) {
-            content.add(createCollapsibleCard("ROUTE HELPER", SUCCESS, routePanel, false));
-            content.add(Box.createVerticalStrut(8));
+            playPage.add(createCollapsibleCard("ROUTE HELPER", SUCCESS, routePanel, false));
+            playPage.add(Box.createVerticalStrut(10));
         }
         if (skillGoalPanel != null) {
-            content.add(createCollapsibleCard("SESSION GOALS & STATS", GOLD, skillGoalPanel, false));
-            content.add(Box.createVerticalStrut(8));
+            playPage.add(createCollapsibleCard("SESSION GOALS", GOLD, skillGoalPanel, false));
+            playPage.add(Box.createVerticalStrut(10));
         }
 
         JPanel liveSyncBody = createVerticalPanel(CARD_BACKGROUND);
@@ -243,8 +248,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         liveSyncBody.add(createRow("Clan events", clanEventsValue));
         liveSyncBody.add(createRow("Group storage", groupStorageValue));
         liveSyncBody.add(createRow("Personal bank", personalBankValue));
-        content.add(createCollapsibleCard("LIVE SYNC", GOLD, liveSyncBody, false));
-        content.add(Box.createVerticalStrut(8));
+        detailsPage.add(createCollapsibleCard("LIVE SYNC", GOLD, liveSyncBody, false));
+        detailsPage.add(Box.createVerticalStrut(10));
 
         JPanel detailsBody = createVerticalPanel(CARD_BACKGROUND);
         detailsBody.add(createSubheading("CHARACTER"));
@@ -259,7 +264,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         detailsBody.add(createRow("Activity", socialActivityValue));
         detailsBody.add(createRow("Combat level", socialCombatValue));
         detailsBody.add(createRow("Equipment slots", socialGearValue));
-        content.add(createCollapsibleCard("MORE DETAILS", new Color(177, 126, 216), detailsBody, false));
+        detailsPage.add(createCollapsibleCard("CHARACTER DETAILS", new Color(177, 126, 216), detailsBody, false));
+        CompanionSidebarDeck deck = new CompanionSidebarDeck();
+        if (slayerPanel != null || routePanel != null || skillGoalPanel != null) deck.page("Play", playPage);
+        deck.page("Account", accountPage); deck.page("Details", detailsPage);
+        content.add(deck);
         content.add(Box.createVerticalStrut(9));
         content.add(createHint("Only features enabled in the plugin settings are shared."));
 
@@ -275,8 +284,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         pinnedGoalValue.setForeground(pinned ? SUCCESS : MUTED);
         routineReminderValue.setText(routines ? "On · local only" : "Off");
         routineReminderValue.setForeground(routines ? SUCCESS : MUTED);
-        String hint = ProgressionFeedback.clean(goalStatus).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        pinnedGoalHint.setText("<html><body style='width: 185px'>" + hint + "</body></html>");
+        pinnedGoalHint.setText(ProgressionFeedback.clean(goalStatus));
         reminderPreviewButton.setEnabled(routines && loggedIn);
     }
 
@@ -313,22 +321,22 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     {
         JPanel header = createVerticalPanel(ColorScheme.DARK_GRAY_COLOR);
 
-        JLabel title = new JLabel("PROGRESSION PATH");
+        JLabel title = new JLabel("Progression Path");
         title.setForeground(GOLD);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
+        title.setFont(SidebarControls.FONT.deriveFont(Font.BOLD, 15f));
         title.setAlignmentX(LEFT_ALIGNMENT);
         header.add(title);
 
-        JLabel subtitle = new JLabel("Your RuneScape account, synced to the web");
+        JTextArea subtitle = SidebarControls.text("Your account. Your next adventure.");
         subtitle.setForeground(MUTED);
-        subtitle.setFont(subtitle.getFont().deriveFont(11f));
+        subtitle.setFont(SidebarControls.FONT.deriveFont(11f));
         subtitle.setAlignmentX(LEFT_ALIGNMENT);
         header.add(Box.createVerticalStrut(2));
         header.add(subtitle);
         header.add(Box.createVerticalStrut(7));
 
         configureValueLabel(statusValue, SwingConstants.LEFT);
-        statusValue.setFont(statusValue.getFont().deriveFont(Font.BOLD, 11f));
+        statusValue.setFont(SidebarControls.FONT.deriveFont(Font.BOLD, 11f));
         header.add(statusValue);
         return header;
     }
@@ -370,7 +378,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         JButton toggle = new JButton();
         toggle.setHorizontalAlignment(SwingConstants.LEFT);
         toggle.setForeground(accent);
-        toggle.setFont(toggle.getFont().deriveFont(Font.BOLD, 10f));
+        toggle.setFont(SidebarControls.FONT.deriveFont(Font.BOLD, 10f));
         toggle.setFocusPainted(false);
         toggle.setContentAreaFilled(false);
         toggle.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -407,7 +415,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         row.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
         JLabel label = new JLabel(labelText);
         label.setForeground(MUTED);
-        label.setFont(label.getFont().deriveFont(11f));
+        label.setFont(SidebarControls.FONT.deriveFont(11f));
         configureValueLabel(valueLabel, SwingConstants.RIGHT);
         row.add(label, BorderLayout.WEST);
         row.add(valueLabel, BorderLayout.CENTER);
@@ -419,12 +427,12 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         JPanel metric = createVerticalPanel(INPUT_BACKGROUND);
         metric.setBorder(BorderFactory.createEmptyBorder(7, 5, 7, 5));
         configureValueLabel(valueLabel, SwingConstants.CENTER);
-        valueLabel.setFont(valueLabel.getFont().deriveFont(Font.BOLD, 15f));
+        valueLabel.setFont(SidebarControls.FONT.deriveFont(Font.BOLD, 15f));
         metric.add(valueLabel);
 
         JLabel label = new JLabel(labelText, SwingConstants.CENTER);
         label.setForeground(MUTED);
-        label.setFont(label.getFont().deriveFont(Font.BOLD, 9f));
+        label.setFont(SidebarControls.FONT.deriveFont(Font.BOLD, 9f));
         label.setAlignmentX(CENTER_ALIGNMENT);
         metric.add(Box.createVerticalStrut(2));
         metric.add(label);
@@ -446,7 +454,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
         JLabel copy = new JLabel(text);
         copy.setForeground(new Color(205, 205, 205));
-        copy.setFont(copy.getFont().deriveFont(10f));
+        copy.setFont(SidebarControls.FONT.deriveFont(10f));
         step.add(badge, BorderLayout.WEST);
         step.add(copy, BorderLayout.CENTER);
         step.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
@@ -463,11 +471,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         return label;
     }
 
-    private JLabel createHint(String text)
+    private JTextArea createHint(String text)
     {
-        JLabel hint = new JLabel("<html><body style='width: 185px'>" + text + "</body></html>");
+        JTextArea hint = SidebarControls.text(text);
         hint.setForeground(MUTED);
-        hint.setFont(hint.getFont().deriveFont(10f));
+        hint.setFont(SidebarControls.FONT.deriveFont(11f));
         hint.setAlignmentX(LEFT_ALIGNMENT);
         return hint;
     }
@@ -475,7 +483,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     private void configureValueLabel(JLabel valueLabel, int alignment)
     {
         valueLabel.setForeground(Color.WHITE);
-        valueLabel.setFont(valueLabel.getFont().deriveFont(11f));
+        valueLabel.setFont(SidebarControls.FONT.deriveFont(11f));
         valueLabel.setHorizontalAlignment(alignment);
         valueLabel.setAlignmentX(alignment == SwingConstants.CENTER ? CENTER_ALIGNMENT : LEFT_ALIGNMENT);
         valueLabel.setToolTipText(valueLabel.getText());
@@ -484,6 +492,8 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
     private void styleButton(JButton button, boolean primary)
     {
+        button.setUI(new javax.swing.plaf.basic.BasicButtonUI());
+        button.setFont(SidebarControls.FONT.deriveFont(11f));
         button.setAlignmentX(LEFT_ALIGNMENT);
         button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         button.setFocusPainted(false);

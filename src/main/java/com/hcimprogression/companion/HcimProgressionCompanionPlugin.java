@@ -117,6 +117,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private SessionGoalHelper sessionGoals;
     private SlayerPreparationHelper slayerPreparation;
     private SlayerBankOverlay slayerBankOverlay;
+    private SlayerTaskOverlay slayerTaskOverlay;
     private volatile SettingsPresetController settingsPresets;
     private boolean packingDirty = true;
     private String packingCharacter = "";
@@ -231,6 +232,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
             accountSnapshotService, SlayerBankPlanner.load(gson), new SlayerWikiService(httpClient, gson));
         slayerBankOverlay = new SlayerBankOverlay(client, slayerPreparation);
         overlayManager.add(slayerBankOverlay);
+        slayerTaskOverlay = new SlayerTaskOverlay(this, client, slayerPreparation.progress());
+        overlayManager.add(slayerTaskOverlay);
         progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client, routeHelper, sessionGoals);
         overlayManager.add(progressionOverlay);
         tickCounter = 0;
@@ -343,6 +346,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         slayerPreparation = null;
         if (slayerBankOverlay != null) overlayManager.remove(slayerBankOverlay);
         slayerBankOverlay = null;
+        if (slayerTaskOverlay != null) overlayManager.remove(slayerTaskOverlay);
+        slayerTaskOverlay = null;
         progressionFeedback.session("");
         if (progressionOverlay != null) overlayManager.remove(progressionOverlay);
         progressionOverlay = null;

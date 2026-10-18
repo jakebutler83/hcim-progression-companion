@@ -16,7 +16,12 @@ final class SlayerWikiGuide
     static final class Variant
     {
         final String name, stats;
-        Variant(String name, String stats) { this.name = name; this.stats = stats; }
+        final Map<String, String> fields;
+        Variant(String name, String stats, Map<String, String> fields)
+        {
+            this.name = name; this.stats = stats;
+            this.fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
+        }
         @Override public String toString() { return name; }
     }
     final String title, url, locations;
@@ -109,15 +114,20 @@ final class SlayerWikiGuide
         for (int i = 1; i <= count; i++)
         {
             StringBuilder text = new StringBuilder();
+            Map<String, String> values = new LinkedHashMap<>();
             for (String[] field : stats)
             {
                 String value = fields.getOrDefault(field[0] + i, fields.get(field[0]));
-                if (value != null && !value.isEmpty()) text.append(field[1]).append(": ").append(value).append('\n');
+                if (value != null && !value.isEmpty())
+                {
+                    text.append(field[1]).append(": ").append(value).append('\n');
+                    values.put(field[1], value);
+                }
             }
             if (!fields.containsKey("weakness" + i) && !fields.containsKey("weakness")
                 && !fields.containsKey("elementalweaknesstype" + i) && !fields.containsKey("elementalweaknesstype"))
                 text.append("Weakness: not listed in the parsed infobox. Defence values are not a DPS ranking.\n");
-            variants.add(new Variant(fields.getOrDefault("version" + i, fields.getOrDefault("name", title)), text.toString().trim()));
+            variants.add(new Variant(fields.getOrDefault("version" + i, fields.getOrDefault("name", title)), text.toString().trim(), values));
         }
         List<String> locations = new ArrayList<>();
         Matcher loc = Pattern.compile("\\{\\{LocLine\\b([^}]{0,25000})}}", Pattern.CASE_INSENSITIVE).matcher(source);

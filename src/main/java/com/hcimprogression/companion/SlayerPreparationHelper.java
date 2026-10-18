@@ -41,14 +41,15 @@ final class SlayerPreparationHelper
     private final SlayerBankPlanner planner;
     private final SlayerWikiService wiki;
     private final JPanel root, body = SidebarControls.column();
-    private final JTextArea taskText = SidebarControls.text("Log in, get a Slayer task, then select Start task.");
+    private final JTextArea taskText = SidebarControls.heading("Your Slayer assignment");
+    private final JTextArea taskMeta = SidebarControls.text("Log in, get an assignment, then select Start task.");
     private final JTextArea gearText = SidebarControls.text("Open your normal bank after starting. Worn gear and Group Storage are never used as bank ownership.");
-    private final JTextArea wikiText = SidebarControls.text("Load Wiki info to see factual stats for an exact monster variant.");
-    private final JTextArea locations = SidebarControls.text("Locations appear after a Wiki lookup. Always follow your assigned area restriction.");
+    private final SlayerWikiPanel wikiPanel = new SlayerWikiPanel();
+    private final SlayerTaskProgress progress = new SlayerTaskProgress();
     private final JTextArea status = SidebarControls.text("Local preparation only; no auto-withdraw, equipment changes or combat guidance.");
     private final JTextField title = new JTextField();
     private final JComboBox<String> styles = new JComboBox<>(new String[]{"Melee: standard", "Melee: stab", "Melee: crush", "Ranged", "Magic: single target", "Magic: burst/barrage"});
-    private final JComboBox<SlayerWikiGuide.Variant> variants = new JComboBox<>();
+    private final JButton load = SidebarControls.button("Load Wiki facts", "Loads stats, explicit weaknesses and locations together after confirmation", false);
     private final JButton highlight = SidebarControls.button("Highlight bank gear", "Visual marks in the normal bank only. No items are moved.", false);
     private volatile Set<Integer> highlighted = Collections.emptySet();
     private volatile long revision;
@@ -61,7 +62,9 @@ final class SlayerPreparationHelper
     private boolean active, bankKnown, marking;
     private List<SlayerBankPlanner.Owned> bank = Collections.emptyList();
     private SlayerBankPlanner.Plan plan;
-    private SlayerWikiGuide guide, displayedGuide;
+    private SlayerWikiGuide guide;
+    private String wikiState = "Stats and locations are not loaded yet. Start a task to load its optional Wiki facts.";
+    private boolean wikiLoading;
     private volatile Call lookup;
 
     SlayerPreparationHelper(Client client, ClientThread thread, ConfigManager config, ItemManager items,
@@ -69,24 +72,29 @@ final class SlayerPreparationHelper
     {
         this.client = client; this.thread = thread; this.config = config; this.items = items;
         this.snapshots = snapshots; this.planner = planner; this.wiki = wiki;
-        body.add(taskText); SidebarControls.gap(body);
-        JButton start = SidebarControls.button("Start task", "Read your actual in-game assignment and prepare locally", true);
+        JPanel taskCard = SidebarControls.column();
+        taskCard.add(taskText); SidebarControls.gap(taskCard); taskCard.add(taskMeta); SidebarControls.gap(taskCard);
+        JButton start = SidebarControls.button("Start task", "Start local preparation and the task progress bar, then offer optional Wiki facts", true);
         JButton stop = SidebarControls.button("Stop", "Clear this session's bank data, highlights and pending lookup", false);
-        body.add(SidebarControls.row(start, stop)); SidebarControls.gap(body);
-        SidebarControls.stretch(styles); styles.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 28)); body.add(styles);
+        taskCard.add(SidebarControls.row(start, stop));
+        body.add(SidebarControls.card("", taskCard)); SidebarControls.gap(body);
+        JPanel setup = SidebarControls.column();
+        setup.add(SidebarControls.text("Target monster · editable"));
+        SidebarControls.field(title); title.setCaretColor(java.awt.Color.WHITE); setup.add(title); SidebarControls.gap(setup);
+        setup.add(SidebarControls.text("Preparation style")); SidebarControls.field(styles); setup.add(styles); SidebarControls.gap(setup);
         JButton refresh = SidebarControls.button("Refresh bank setup", "Apply the monster name below and recalculate from your bank; won't inspect worn gear", false);
-        body.add(refresh); body.add(highlight); SidebarControls.gap(body);
+        setup.add(refresh); SidebarControls.gap(setup); setup.add(highlight);
+        body.add(SidebarControls.card("Bank preparation",setup)); SidebarControls.gap(body);
         body.add(SidebarControls.fold("Bank loadout", SidebarControls.scroll(gearText, 200)));
-        SidebarControls.gap(body); body.add(SidebarControls.text("Monster / Wiki page (editable)"));
-        SidebarControls.stretch(title); title.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 28)); body.add(title);
-        JButton load = SidebarControls.button("Load Wiki info", "Sends only the public monster page title to OSRS Wiki after confirmation", false);
+        SidebarControls.gap(body);
         JButton open = SidebarControls.button("Open Wiki page", "Open the exact monster page in your browser", false);
-        body.add(load); body.add(open); SidebarControls.gap(body);
-        SidebarControls.stretch(variants); variants.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 28)); body.add(variants);
-        body.add(SidebarControls.fold("Stats & weaknesses", SidebarControls.scroll(wikiText, 200)));
-        SidebarControls.gap(body); body.add(SidebarControls.fold("Locations / travel", SidebarControls.scroll(locations, 140)));
+        JPanel intelligence = SidebarControls.column();
+        intelligence.add(load); SidebarControls.gap(intelligence); intelligence.add(open); SidebarControls.gap(intelligence);
+        intelligence.add(wikiPanel.panel());
+        body.add(SidebarControls.card("Monster intelligence", intelligence));
         SidebarControls.gap(body); body.add(status);
-        root = SidebarControls.fold("SLAYER PREPARATION", body);
+        root = SidebarControls.fold("Slayer preparation", body);
+        load.setEnabled(false);
         start.addActionListener(event -> { String chosen = style(); thread.invokeLater(() -> start(chosen)); });
         stop.addActionListener(event -> thread.invokeLater(() -> reset("Stopped. Local bank data and highlights cleared.")));
         refresh.addActionListener(event -> { String chosen = style(), selected = title.getText(); thread.invokeLater(() -> {
@@ -94,7 +102,7 @@ final class SlayerPreparationHelper
             try
             {
                 String next = SlayerWikiGuide.validTitle(selected);
-                if (!monster.equals(next)) { generation++; cancelLookup(); guide = null; monster = next; }
+                if (!monster.equals(next)) { generation++; cancelLookup(); clearWiki(); monster = next; }
             }
             catch (IllegalArgumentException error) { publish(error.getMessage()); return; }
             style = chosen; readBank(client.getItemContainer(InventoryID.BANK)); recalculate();
@@ -107,18 +115,11 @@ final class SlayerPreparationHelper
             publish(marking ? "Gold marks show the chosen bank items. Withdraw them yourself; refresh only when you want a new setup."
                 : plan != null && plan.blocked ? "Resolve the missing equipment or supported-weapon warning before highlighting." : "Bank highlights cleared.");
         }));
-        load.addActionListener(event -> {
-            String page = title.getText();
-            if (JOptionPane.showConfirmDialog(body, "Load public monster facts from oldschool.runescape.wiki?\nOnly the page title is submitted; bank items, account name and tokens are not sent.\nThis feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers", "Wiki lookup", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION)
-                thread.invokeLater(() -> load(page));
-        });
+        load.addActionListener(event -> requestWiki(title.getText(), generation));
         open.addActionListener(event -> { try { LinkBrowser.browse(SlayerWikiGuide.url(title.getText())); } catch (IllegalArgumentException error) { status.setText(error.getMessage()); } });
-        variants.addActionListener(event -> {
-            SlayerWikiGuide.Variant value = (SlayerWikiGuide.Variant) variants.getSelectedItem();
-            if (value != null && displayedGuide != null) wikiText.setText(value.stats + "\n\nOSRS Wiki · revision " + displayedGuide.revision + "\nChoose the correct variant; requirements and locations may differ.");
-        });
     }
     JPanel panel() { return root; }
+    SlayerTaskProgress progress() { return progress; }
     Set<Integer> highlights() { return highlighted; }
     private String style() { return new String[]{"melee", "stab", "crush", "ranged", "magic", "burst"}[Math.max(0, styles.getSelectedIndex())]; }
     private String identity() { return config.getRSProfileKey() + ":" + client.getAccountHash(); }
@@ -136,7 +137,13 @@ final class SlayerPreparationHelper
         SlayerSnapshot current = snapshots.readSlayer(client);
         String nextArea = assignedArea();
         String nextAssignment = current.getTargetId() + ":" + current.getCurrentTask() + ":" + nextArea;
-        if (active && (!assignment.equals(nextAssignment) || current.getRemaining() <= 0))
+        if (active && current.getRemaining() <= 0)
+        {
+            progress.observe(0,System.currentTimeMillis());
+            reset("Task complete. Local bank data and highlights cleared.", true);
+            identity = identity();
+        }
+        else if (active && !assignment.equals(nextAssignment))
         {
             reset("Assignment changed or completed. Select Start task again.");
             identity = identity();
@@ -144,6 +151,8 @@ final class SlayerPreparationHelper
         lastTaskInput = inputs;
         boolean changed = !task.equals(current.getCurrentTask()) || remaining != current.getRemaining() || !area.equals(nextArea);
         task = current.getCurrentTask(); remaining = current.getRemaining(); area = nextArea;
+        if (active) progress.observe(remaining,System.currentTimeMillis());
+        else if (remaining > 0) progress.stop();
         if (changed) publish("");
     }
     private void start(String chosen)
@@ -151,12 +160,13 @@ final class SlayerPreparationHelper
         if (closed) return;
         tick();
         if (client.getGameState() != GameState.LOGGED_IN || remaining <= 0) { publish("Get a Slayer assignment before starting."); return; }
-        generation++; cancelLookup(); guide = null; active = true; style = chosen;
+        generation++; cancelLookup(); clearWiki(); active = true; style = chosen;
+        progress.start(task,remaining);
         assignment = client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":" + task + ":" + area;
         bankKnown = false; bank = Collections.emptyList(); plan = null; marking = false; highlighted = Collections.emptySet();
         monster = SlayerWikiGuide.monsterTitle(task);
         String page = monster; long expected = generation;
-        SwingUtilities.invokeLater(() -> { if (generation == expected) title.setText(page); });
+        SwingUtilities.invokeLater(() -> { if (generation == expected) { title.setText(page); requestWiki(page,expected); } });
         readBank(client.getItemContainer(InventoryID.BANK)); recalculate();
     }
     void bankChanged(ItemContainer container)
@@ -195,13 +205,15 @@ final class SlayerPreparationHelper
         try { page = SlayerWikiGuide.validTitle(page); } catch (IllegalArgumentException error) { publish(error.getMessage()); return; }
         if (System.currentTimeMillis() - lookupAt < 5000) { publish("Please wait a few seconds between Wiki lookups."); return; }
         lookupAt = System.currentTimeMillis(); cancelLookup(); guide = null;
+        wikiLoading = true; wikiState = "Loading stats, weaknesses and locations…";
         monster = page;
         if (bankKnown) recalculate();
         long expected = ++generation; String owner = identity;
         publish("Loading the public Wiki page…");
         lookup = wiki.load(page, (result, error) -> thread.invokeLater(() -> {
             if (!sameCharacter() || generation != expected || !identity.equals(owner)) return;
-            lookup = null; guide = result;
+            lookup = null; guide = result; wikiLoading = false;
+            wikiState = error == null ? "Wiki facts loaded · choose the correct variant below." : error + " Use Load Wiki facts to retry.";
             publish(error == null ? "Wiki facts loaded. Select the exact variant; lower defence is not automatically the best DPS." : error);
         }));
         if (closed || generation != expected) cancelLookup();
@@ -220,10 +232,15 @@ final class SlayerPreparationHelper
     }
     void reset(String message)
     {
+        reset(message,false);
+    }
+    private void reset(String message, boolean keepCompletedProgress)
+    {
         generation++; cancelLookup(); active = false; identity = ""; assignment = ""; bankKnown = false;
         lastTaskInput = "";
         task = ""; monster = ""; area = ""; remaining = 0;
-        bank = Collections.emptyList(); plan = null; guide = null; marking = false; highlighted = Collections.emptySet();
+        bank = Collections.emptyList(); plan = null; clearWiki(); marking = false; highlighted = Collections.emptySet();
+        if (!keepCompletedProgress) progress.stop();
         long expected = generation;
         SwingUtilities.invokeLater(() -> { if (generation == expected) title.setText(""); });
         publish(message);
@@ -231,15 +248,31 @@ final class SlayerPreparationHelper
     void close()
     {
         // Disable immediately even if an old sidebar action is queued on ClientThread.
-        closed = true; highlighted = Collections.emptySet(); generation++;
+        closed = true; highlighted = Collections.emptySet(); progress.stop(); generation++;
         cancelLookup();
         thread.invokeLater(() -> reset("Plugin stopped. Local Slayer data cleared."));
     }
     private void cancelLookup() { Call pending = lookup; lookup = null; if (pending != null) pending.cancel(); }
+    private void clearWiki()
+    {
+        guide = null; wikiLoading = false;
+        wikiState = "Stats and locations are not loaded yet. Use Load Wiki facts to fetch them together.";
+    }
+    private void requestWiki(String page, long expected)
+    {
+        if (closed || generation != expected) return;
+        if (JOptionPane.showConfirmDialog(body,
+            "Load monster stats, weaknesses and locations from OSRS Wiki?\n"
+            + "Only the public monster page title is submitted.\nBank items, account name and companion tokens are never sent.\n\n"
+            + "This feature submits your IP address to a 3rd-party server\nnot controlled or verified by RuneLite developers",
+            "Optional Wiki facts", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION)
+            thread.invokeLater(() -> { if (generation == expected && !closed) load(page); });
+    }
     private void publish(String message)
     {
         long version = ++revision;
-        String current = task + " · " + remaining + " remaining\n" + area + (active ? "\nPreparation active" : "\nPreparation stopped");
+        String current = task.isEmpty() ? "Your Slayer assignment" : task;
+        String meta = remaining + " remaining · " + (active ? "Tracking" : "Stopped") + "\n" + area;
         StringBuilder equipment = new StringBuilder();
         if (plan != null)
         {
@@ -249,20 +282,13 @@ final class SlayerPreparationHelper
         }
         else equipment.append("Open your normal bank after selecting Start task. Currently worn equipment, group storage and placeholders are not used.");
         String gear = equipment.toString(); boolean marked = marking; SlayerWikiGuide snapshot = guide;
+        String factsState = wikiState; boolean busy = wikiLoading, running = active;
         SwingUtilities.invokeLater(() -> {
             if (version != revision) return;
-            taskText.setText(current); gearText.setText(gear); highlight.setText(marked ? "Clear highlights" : "Highlight bank gear");
+            taskText.setText(current); taskMeta.setText(meta); gearText.setText(gear); highlight.setText(marked ? "Clear highlights" : "Highlight bank gear");
+            load.setEnabled(running && !busy); load.setText(busy ? "Loading Wiki facts…" : "Load Wiki facts");
             if (!message.isEmpty()) status.setText(message);
-            if (snapshot != displayedGuide)
-            {
-                displayedGuide = snapshot; variants.removeAllItems();
-                if (snapshot != null)
-                {
-                    for (SlayerWikiGuide.Variant variant : snapshot.variants) variants.addItem(variant);
-                    locations.setText(snapshot.locations + "\n\nLocations are options, not proof of task-area access.\nOSRS Wiki · revision " + snapshot.revision + "\n" + snapshot.url);
-                }
-                else { wikiText.setText("Load Wiki info for this monster; choose the correct variant."); locations.setText("Always follow your assigned area restriction. Use Open Wiki page for detailed travel instructions."); }
-            }
+            wikiPanel.show(snapshot, factsState, busy);
             body.revalidate(); body.repaint();
         });
     }

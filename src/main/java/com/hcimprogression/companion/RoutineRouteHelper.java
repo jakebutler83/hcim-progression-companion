@@ -53,7 +53,7 @@ final class RoutineRouteHelper
     RoutineRouteHelper(ConfigManager manager, HcimProgressionCompanionConfig config, SyncService service, Gson gson, ClientThread clientThread)
     {
         this.manager = manager; this.config = config; this.service = service; this.gson = gson; this.clientThread = clientThread;
-        SidebarControls.stretch(kind); kind.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE,30));
+        SidebarControls.field(kind);
         panel.add(kind); SidebarControls.gap(panel); panel.add(status); SidebarControls.gap(panel);
         panel.add(start); SidebarControls.gap(panel); panel.add(SidebarControls.row(back,next,stop)); SidebarControls.gap(panel);
         panel.add(packing); SidebarControls.gap(panel);

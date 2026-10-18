@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JToggleButton;
+import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -29,6 +31,7 @@ public class ProgressionPanelTest
     {
         SwingUtilities.invokeAndWait(() -> {
             HcimProgressionCompanionPanel panel = new HcimProgressionCompanionPanel(code -> {}, () -> {}, () -> {});
+            showDetails(panel);
             ProgressionFeedback feedback = new ProgressionFeedback();
             long session = feedback.session("hp");
             feedback.baseline(session);
@@ -62,6 +65,7 @@ public class ProgressionPanelTest
         SwingUtilities.invokeAndWait(() -> {
             AtomicInteger previews = new AtomicInteger();
             HcimProgressionCompanionPanel panel = new HcimProgressionCompanionPanel(code -> {}, () -> {}, previews::incrementAndGet);
+            showDetails(panel);
             JButton button = components(panel).stream().filter(JButton.class::isInstance).map(JButton.class::cast)
                 .filter(value -> "Preview local reminder".equals(value.getText())).findFirst().get();
             assertFalse(button.isEnabled());
@@ -79,15 +83,22 @@ public class ProgressionPanelTest
     {
         SwingUtilities.invokeAndWait(() -> {
             HcimProgressionCompanionPanel panel = new HcimProgressionCompanionPanel(code -> {}, () -> {}, () -> {});
+            showDetails(panel);
             panel.showProgressionDisplays(true, false, true, false, true, "<img src='untrusted'> & goal");
             List<Component> values = components(panel);
             assertTrue(values.stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
                 .anyMatch(label -> "Needs auto sync".equals(label.getText())));
-            assertTrue(values.stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
-                .anyMatch(label -> label.getText() != null && label.getText().contains("&amp; goal")));
+            assertTrue(values.stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast)
+                .anyMatch(label -> label.getText().contains("& goal") && !label.getText().contains("<img")));
             assertFalse(values.stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
                 .anyMatch(label -> label.getText() != null && label.getText().contains("<img")));
         });
+    }
+
+    private static void showDetails(Container panel)
+    {
+        components(panel).stream().filter(JToggleButton.class::isInstance).map(JToggleButton.class::cast)
+            .filter(button -> "Details".equals(button.getText())).findFirst().get().doClick(0);
     }
 
     private static List<Component> components(Container parent)
