@@ -35,6 +35,8 @@ import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.ScriptPreFired;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.Notifier;
@@ -176,6 +178,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private volatile long lastAutomaticAccountSyncAt;
     private PersonalBestSync personalBestSync;
     private boolean personalBestsDirty = true;
+    private CollectionUnlockSync collectionUnlockSync;
+    private String collectionUnlockBinding = "";
+    private int collectionItemSearchCursor;
+    private long collectionItemSearchRetryAt;
+    private boolean collectionPopupStarted;
     private long nextPersonalBestReadAt;
     private int questPbReadTicks;
     private int questPbChatTick = -100;
@@ -258,6 +265,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             (name, token, api, records, done) -> syncService.syncPersonalBests(api, token, name, records,
                 (count, error) -> clientThread.invokeLater(() -> done.accept(count, error))));
         personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100; lastPersonalBestStatus = "";
+        collectionUnlockBinding = ""; collectionUnlockSync = null; collectionPopupStarted = false;
         personalBestProfileBinding = ""; personalBestWorldMode = ""; nextPersonalBestProfileCheckAt = 0;
         birdhouseTracker = new BirdhouseTracker(configManager);
         farmRunTracker = new FarmRunTracker(configManager);
@@ -305,6 +313,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void shutDown()
     {
+        resetCollectionUnlocks();
         if (personalBestSync != null) personalBestSync.reset();
         feedbackRunning = false;
         if (routeHelper != null) routeHelper.reset();
@@ -803,6 +812,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
     {
+        resetCollectionUnlocks();
         if (personalBestSync != null) personalBestSync.reset();
         personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100;
         // RuneLite can change RS profiles independently of a visible name
@@ -822,6 +832,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         GameState nextState = event.getGameState();
         if (isLoggedOutState(nextState))
         {
+            resetCollectionUnlocks();
             if (personalBestSync != null) personalBestSync.reset();
             personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100;
         }
@@ -902,6 +913,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             return;
         }
+        observeCollectionUnlock(CollectionUnlockSync.chatName(event.getType(), message));
         if (config.personalBestSyncEnabled() && (event.getType() == net.runelite.api.ChatMessageType.GAMEMESSAGE || event.getType() == net.runelite.api.ChatMessageType.SPAM)
             && message.replaceAll("<[^>]+>|@[^@]+@", "").startsWith("Speedrun duration: ")
             && message.contains("new personal best")) questPbChatTick = client.getTickCount();
@@ -1126,6 +1138,18 @@ public class HcimProgressionCompanionPlugin extends Plugin
     }
 
     @Subscribe
+    public void onScriptPreFired(ScriptPreFired event)
+    {
+        if (event.getScriptId() == ScriptID.NOTIFICATION_START) collectionPopupStarted = true;
+        else if (event.getScriptId() == ScriptID.NOTIFICATION_DELAY && collectionPopupStarted)
+        {
+            collectionPopupStarted = false;
+            observeCollectionUnlock(CollectionUnlockSync.popupName(
+                client.getVarcStrValue(VarClientID.NOTIFICATION_TITLE), client.getVarcStrValue(VarClientID.NOTIFICATION_MAIN)));
+        }
+    }
+
+    @Subscribe
     public void onScriptPostFired(ScriptPostFired event)
     {
         if (event.getScriptId() != ScriptID.COLLECTION_DRAW_LIST)
@@ -1258,6 +1282,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         updateActiveAccountLink(currentPlayerName());
         refreshFeedbackSession();
         handlePersonalBests(System.currentTimeMillis());
+        handleCollectionUnlocks();
 
         if (packingDirty && routeHelper != null)
         {
@@ -1379,6 +1404,93 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private void requestAutomaticAccountSync()
     {
         requestAutomaticAccountSync(true);
+    }
+
+    private void resetCollectionUnlocks()
+    {
+        if (collectionUnlockSync != null) collectionUnlockSync.reset(java.util.Collections.emptyList(), System.currentTimeMillis());
+        collectionUnlockSync = null; collectionUnlockBinding = ""; collectionPopupStarted = false;
+    }
+
+    private boolean collectionConnection()
+    {
+        if (client.getGameState() != GameState.LOGGED_IN || !config.automaticAccountSyncEnabled()
+            || deviceToken().isEmpty() || !"STANDARD".equals(PersonalBestCapture.mode(client, configManager)))
+        {
+            if (collectionUnlockSync != null) collectionUnlockSync.reset(java.util.Collections.emptyList(), System.currentTimeMillis());
+            collectionUnlockSync = null; collectionUnlockBinding = ""; return false;
+        }
+        String profile = configManager.getRSProfileKey(), token = deviceToken(), api = config.apiBaseUrl();
+        String binding = profile + ":" + client.getAccountHash() + ":" + token + ":" + api;
+        if (!binding.equals(collectionUnlockBinding))
+        {
+            if (collectionUnlockSync != null) collectionUnlockSync.reset(java.util.Collections.emptyList(), System.currentTimeMillis());
+            collectionUnlockBinding = binding; collectionItemSearchCursor = 0; collectionItemSearchRetryAt = 0;
+            final String ownerProfile = profile;
+            collectionUnlockSync = new CollectionUnlockSync(items -> {
+                if (ownerProfile.equals(configManager.getRSProfileKey()))
+                    configManager.setRSProfileConfiguration(HcimProgressionCompanionConfig.GROUP, "pendingCollectionUnlocks", gson.toJson(items));
+            });
+            List<CollectionUnlockSync.Unlock> saved = java.util.Collections.emptyList();
+            try
+            {
+                CollectionUnlockSync.Unlock[] rows = gson.fromJson(configManager.getRSProfileConfiguration(
+                    HcimProgressionCompanionConfig.GROUP, "pendingCollectionUnlocks"), CollectionUnlockSync.Unlock[].class);
+                if (rows != null) saved = java.util.Arrays.asList(rows);
+            }
+            catch (RuntimeException invalid) { logger.debug("Ignoring invalid pending collection events"); }
+            collectionUnlockSync.reset(saved, System.currentTimeMillis());
+        }
+        return true;
+    }
+
+    private void observeCollectionUnlock(String name)
+    {
+        if (name.isEmpty() || !collectionConnection()) return;
+        collectionUnlockSync.observe(name, System.currentTimeMillis());
+        collectionItemSearchCursor = 0; collectionItemSearchRetryAt = 0;
+        requestAutomaticAccountSync();
+    }
+
+    private void handleCollectionUnlocks()
+    {
+        if (!collectionConnection()) return;
+        List<CollectionUnlockSync.Unlock> pending = collectionUnlockSync.items();
+        if (pending.isEmpty()) return;
+        // Cached price search covers tradeables; inventory covers most new
+        // untradeables. Only unresolved rewards scan definitions incrementally,
+        // never the scene or a full item database every tick.
+        for (CollectionUnlockSync.Unlock item : pending)
+        {
+            if (item.itemId != 0) continue;
+            for (net.runelite.http.api.item.ItemPrice price : itemManager.search(item.name))
+                if (item.name.equalsIgnoreCase(price.getName())) { collectionUnlockSync.resolve(item.name, price.getId()); break; }
+        }
+        for (int containerId : new int[]{InventoryID.INV, InventoryID.WORN, InventoryID.BANK})
+        {
+            ItemContainer container = client.getItemContainer(containerId);
+            if (container == null) continue;
+            for (net.runelite.api.Item item : container.getItems()) if (item != null && item.getId() > 0)
+                resolveCollectionItem(item.getId());
+        }
+        long now = System.currentTimeMillis();
+        if (pending.stream().anyMatch(item -> item.itemId == 0) && now >= collectionItemSearchRetryAt)
+        {
+            int end = Math.min(Math.min(client.getItemCount(), 500000), collectionItemSearchCursor + 256);
+            long deadline = System.nanoTime() + 2000000L;
+            while (collectionItemSearchCursor < end && System.nanoTime() < deadline) resolveCollectionItem(collectionItemSearchCursor++);
+            if (collectionItemSearchCursor >= client.getItemCount()) { collectionItemSearchCursor = 0; collectionItemSearchRetryAt = now + 60000; }
+        }
+        String name = currentPlayerName(), token = deviceToken(), api = config.apiBaseUrl();
+        collectionUnlockSync.tick(now, (items, done) -> syncService.syncCollectionUnlocks(api, token, name, items,
+            (ok, error) -> clientThread.invokeLater(() -> done.accept(ok, error))));
+    }
+
+    private void resolveCollectionItem(int id)
+    {
+        net.runelite.api.ItemComposition definition = itemManager.getItemComposition(id);
+        if (definition != null && definition.getMembersName() != null && definition.getNote() == -1 && definition.getPlaceholderTemplateId() == -1)
+            collectionUnlockSync.resolve(definition.getMembersName(), id);
     }
 
     private void handlePersonalBests(long now)

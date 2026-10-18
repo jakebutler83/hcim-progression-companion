@@ -9,6 +9,7 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 - Automatic quest completion syncing
 - One-click account snapshot syncing
 - Optional batched automatic account snapshots after skill, quest, diary, or collection-log changes
+- Automatic newly earned Collection Log rewards in Weekly Snapshot (development; requires the matching API and an in-game test)
 - Farm-run snapshots and harvest reminders derived from RuneLite Time Tracking's per-profile patch states and farming-tick calibration
 - Read-only Kingdom of Miscellania coffer and approval snapshots using RuneLite's built-in kingdom state
 - Daily reward availability from RuneLite's Daily Task Indicator sources
@@ -41,6 +42,24 @@ It allows your Group Hardcore Ironman team to automatically synchronize progress
 13. Enable **Automatic account snapshots** if you want the companion to queue full progression uploads automatically. Changes are coalesced during a short quiet period, rate-limited to one full snapshot every five minutes, and periodically refreshed while logged in.
 
 Once connected, supported progression updates will automatically appear on your group's dashboard.
+
+### New Collection Log rewards (development)
+
+Enable **Automatic account snapshots**, keep the character linked, and press
+**Sync Account Now** once to establish a baseline. Enable either the game's
+Collection Log chat messages or its Collection Log popup. New unlocks observed
+while this plugin is running are sent separately from the five-minute full
+snapshot cooldown and appear in Weekly Snapshot's collection rewards without
+opening the Collection Log. The same cloud history is used by iOS.
+
+Chat and popup observations are coalesced. Item IDs come from cached exact item
+names or game item definitions, including untradeable rewards; uncommon IDs may
+take longer to resolve using a bounded incremental lookup. Nothing reads the
+scene or automates game input. Pending rewards are kept in the matching RuneLite
+profile for retry (up to seven days). Temporary, seasonal and quest-speedrunning
+profiles are excluded. If both game notifications are disabled, the plugin
+cannot identify an unseen unlock: enable one for future rewards. Opening old
+log pages imports ownership silently and never invents a new weekly reward.
 
 ### Pre-release beta testers
 

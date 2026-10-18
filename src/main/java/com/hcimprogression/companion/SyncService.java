@@ -447,6 +447,18 @@ public class SyncService {
                 });
     }
 
+    public void syncCollectionUnlocks(String api, String token, String name,
+        List<CollectionUnlockSync.Unlock> items, BiConsumer<Boolean,String> done)
+    {
+        Map<String,Object> payload = new LinkedHashMap<>();
+        payload.put("playerName", name); payload.put("items", items);
+        try { post(api, "companion-collection-unlocks", token, gson.toJson(payload)).whenComplete((body, error) -> {
+            if (error != null) done.accept(false, friendly(error));
+            else if (!body.contains("\"ok\":true")) done.accept(false, errorValue(body));
+            else done.accept(true, null);
+        }); } catch (RuntimeException error) { done.accept(false, friendly(error)); }
+    }
+
     public void syncAccount(
             String apiBaseUrl,
             String token,
