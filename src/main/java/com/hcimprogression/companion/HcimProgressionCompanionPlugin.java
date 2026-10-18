@@ -90,7 +90,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private static final int AUTOMATIC_ACCOUNT_SYNC_DEBOUNCE_TICKS = 30;
     private static final int CLUE_REWARD_CAPTURE_TICKS = 10;
     private static final long CLUE_REWARD_DUPLICATE_MILLIS = 3_000L;
-    private static final long BARROWS_REWARD_DUPLICATE_MILLIS = 5_000L;
+    private static final int BARROWS_REWARD_CAPTURE_TICKS = 10;
+    private static final String BARROWS_CAPTURED_CHEST_KEY = "lastTrackedBarrowsChest";
     private static final Pattern CLUE_SCROLL_PATTERN = Pattern.compile(
         "you have completed [0-9]+ (beginner|easy|medium|hard|elite|master) treasure trails?\\."
     );
@@ -198,8 +199,11 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private int pendingClueRewardTicks;
     private String lastClueRewardFingerprint = "";
     private long lastClueRewardCapturedAt;
-    private String lastBarrowsRewardFingerprint = "";
-    private long lastBarrowsRewardCapturedAt;
+    private int pendingBarrowsRewardTicks;
+    private final BarrowsRewardTracker barrowsRewardTracker = new BarrowsRewardTracker(
+        () -> configManager.getRSProfileConfiguration(HcimProgressionCompanionConfig.GROUP, BARROWS_CAPTURED_CHEST_KEY, Integer.class),
+        chest -> configManager.setRSProfileConfiguration(HcimProgressionCompanionConfig.GROUP, BARROWS_CAPTURED_CHEST_KEY, chest)
+    );
 
     @Override
     protected void startUp()
@@ -258,8 +262,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         pendingClueRewardTicks = 0;
         lastClueRewardFingerprint = "";
         lastClueRewardCapturedAt = 0L;
-        lastBarrowsRewardFingerprint = "";
-        lastBarrowsRewardCapturedAt = 0L;
+        pendingBarrowsRewardTicks = 0;
         panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel(), sessionGoals.panel());
         personalBestSync = new PersonalBestSync(config::personalBestSyncEnabled,
             (name, token, api, records, done) -> syncService.syncPersonalBests(api, token, name, records,
@@ -812,6 +815,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
     {
+        pendingBarrowsRewardTicks = 0;
         resetCollectionUnlocks();
         if (personalBestSync != null) personalBestSync.reset();
         personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100;
@@ -832,6 +836,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         GameState nextState = event.getGameState();
         if (isLoggedOutState(nextState))
         {
+            pendingBarrowsRewardTicks = 0;
             resetCollectionUnlocks();
             if (personalBestSync != null) personalBestSync.reset();
             personalBestsDirty = true; nextPersonalBestReadAt = 0; questPbReadTicks = 0; questPbChatTick = -100;
@@ -1079,7 +1084,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private void captureBarrowsReward(ItemContainer container)
     {
-        if (!config.weeklyLootTrackingEnabled() || container == null)
+        if (!config.weeklyLootTrackingEnabled() || container == null || configManager.getRSProfileKey() == null)
         {
             return;
         }
@@ -1097,33 +1102,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
-        items.sort((left, right) ->
-        {
-            int idCompare = Integer.compare(left.getId(), right.getId());
-            return idCompare != 0 ? idCompare : Integer.compare(left.getQuantity(), right.getQuantity());
-        });
-        StringBuilder fingerprintBuilder = new StringBuilder();
-        for (ItemStack item : items)
-        {
-            fingerprintBuilder.append(item.getId()).append(':').append(item.getQuantity()).append(';');
-        }
-        String fingerprint = fingerprintBuilder.toString();
-        long now = System.currentTimeMillis();
-        if (fingerprint.equals(lastBarrowsRewardFingerprint)
-            && now - lastBarrowsRewardCapturedAt < BARROWS_REWARD_DUPLICATE_MILLIS)
-        {
-            return;
-        }
-
-        lastBarrowsRewardFingerprint = fingerprint;
-        lastBarrowsRewardCapturedAt = now;
-        weeklyLootTrackerService.recordEventLoot(
-            "Barrows",
-            items,
-            itemManager,
-            configManager,
-            gson
-        );
+        boolean captured = barrowsRewardTracker.capture(client.getVarpValue(VarPlayerID.TOTAL_BARROWS_CHESTS),
+            () -> weeklyLootTrackerService.recordEventLoot("Barrows", items, itemManager, configManager, gson));
+        if (!captured) return;
+        pendingBarrowsRewardTicks = 0;
         if (config.automaticAccountSyncEnabled() && !deviceToken().isEmpty())
         {
             requestAutomaticAccountSync();
@@ -1185,14 +1167,13 @@ public class HcimProgressionCompanionPlugin extends Plugin
     public void onItemContainerChanged(ItemContainerChanged event)
     {
         if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) packingDirty = true;
-        if (event.getContainerId() == InventoryID.TRAIL_REWARDINV
+        if (pendingBarrowsRewardTicks > 0 && event.getContainerId() == InventoryID.TRAIL_REWARDINV
             && client.getTopLevelInterfaceId() == InterfaceID.BARROWS_REWARD)
         {
             captureBarrowsReward(event.getItemContainer());
         }
-
         if (event.getContainerId() == InventoryID.TRAIL_REWARDINV
-            && client.getTopLevelInterfaceId() != InterfaceID.BARROWS_REWARD
+            && client.getTopLevelInterfaceId() == InterfaceID.TRAIL_REWARDSCREEN
             && config.weeklyLootTrackingEnabled())
         {
             // Do not depend on chat ordering. Stage a generic source here and
@@ -1226,6 +1207,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (event.getGroupId() == InterfaceID.QUESTSCROLL_SPEEDRUN && config.personalBestSyncEnabled()) questPbReadTicks = 5;
         if (event.getGroupId() == InterfaceID.BARROWS_REWARD)
         {
+            // Match RuneLite's widget capture, with a bounded retry window if
+            // the container or chest-count varp arrives later. Withdrawing
+            // items is not a new reward and must not arm another capture.
+            pendingBarrowsRewardTicks = BARROWS_REWARD_CAPTURE_TICKS;
             captureBarrowsReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
         }
 
@@ -1283,6 +1268,16 @@ public class HcimProgressionCompanionPlugin extends Plugin
         refreshFeedbackSession();
         handlePersonalBests(System.currentTimeMillis());
         handleCollectionUnlocks();
+
+        if (pendingBarrowsRewardTicks > 0)
+        {
+            pendingBarrowsRewardTicks--;
+            if (client.getTopLevelInterfaceId() == InterfaceID.BARROWS_REWARD)
+            {
+                captureBarrowsReward(client.getItemContainer(InventoryID.TRAIL_REWARDINV));
+            }
+            else pendingBarrowsRewardTicks = 0;
+        }
 
         if (packingDirty && routeHelper != null)
         {
@@ -2315,6 +2310,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
         activePlayerKey = key;
+        pendingBarrowsRewardTicks = 0;
         if (birdhouseTracker != null) birdhouseTracker.reset();
         if (farmRunTracker != null) farmRunTracker.reset();
         automaticAccountSyncDirty = false;

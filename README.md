@@ -319,6 +319,19 @@ during an upload; the new character must never inherit the old goal.
 
 ## Plugin Hub releases
 
+### Pending Barrows loot regression check
+
+Barrows loot is now deduplicated by the game's chest count, saved per
+RuneScape profile, rather than by a five-second item fingerprint. Opening a
+new chest should record one reward. Withdraw some items, wait over five
+seconds, and close/reopen the reward: neither action should add another drop.
+The next real chest must still add one reward. Restart and switch characters
+to check the saved count remains isolated; verify a real clue reward still
+records once. No old website loot records are automatically deleted.
+The owner requested publication on October 18, 2026 and declined a
+development-client test. Automated regression tests pass, but the new Barrows
+behavior and observed collection-unlock capture remain unverified in-game.
+
 Pushing source changes to `main` updates this repository but does not immediately update the public Plugin Hub build. Publish a GitHub release, or manually run the `Submit Plugin Hub release` workflow, when a tested companion version is ready. The workflow opens or refreshes a Plugin Hub pull request for RuneLite maintainer review, so ordinary development commits do not bypass the public release process.
 
 One-time setup: add a companion repository Actions secret named `PLUGIN_HUB_TOKEN`. Use a fine-grained GitHub token limited to the `jakebutler83/plugin-hub` repository with **Contents: Read and write** permission. Until this secret exists, the workflow exits safely without changing either repository.
