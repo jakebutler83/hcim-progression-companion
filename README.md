@@ -353,6 +353,71 @@ Publication was requested on October 18, 2026 before the owner settings-screen
 test. All 115 automated companion tests pass; interactive settings verification
 remains pending. Plugin Hub availability still depends on maintainer review.
 
+## Slayer preparation
+
+The collapsed **SLAYER PREPARATION** panel is a user-started preparation
+helper, not a combat simulator. Select **Start task** to read the game's Slayer
+assignment, remaining count and any area restriction. Common task labels are
+mapped to exact monster page names; the monster name remains editable for
+variants. Change it and use **Refresh bank setup** to apply it to the gear list.
+
+- Open the normal bank to build a loadout from positive, non-placeholder,
+  non-noted bank items and your real skill levels. Currently worn equipment,
+  collection-log unlocks and Group Storage are not treated as bank ownership.
+- Six selectable styles use the site's supported preparation priorities,
+  adapted as static data, not downloaded code or a DPS simulation. Two-handed
+  weapons, compatible ammunition, crystal body/legs and protective equipment
+  are checked. The packing list stays fixed while withdrawing; refresh when
+  you want to choose a new setup. Charges, quest unlocks, spellbook/runes and
+  finishing items still need manual review. This is not a claim of universal
+  best-in-slot or best DPS.
+- **Highlight bank gear** marks only the selected item IDs in the normal bank.
+  No items are withdrawn or equipped, and no game/menu input is generated.
+  Missing protection or an unsupported weapon prevents highlighting. Dragon
+  profiles conservatively require an owned shield; potion-only configurations
+  are not supported. Never infer Hardcore safety from these suggestions.
+- Initial reviewed gear coverage includes common demons, bloodvelds,
+  nechryael, jellies, ankou, dagannoth, giants, dark beasts, gargoyles,
+  dust/smoke devils, spectres, basilisks/cockatrice, wyrms/drakes/hydras and
+  blue/black/green/red/bronze/iron/steel dragons. Bosses, broad categories and
+  other special-equipment monsters have their gear/highlights withheld until
+  a dedicated profile is reviewed. Wiki facts are still available.
+- **Load Wiki info** is separately confirmed for each request. Only the public
+  monster page title is submitted to OSRS Wiki; the Wiki sees the connection's
+  IP address. No bank data, player name or companion token is submitted. It
+  does not need website linking, bank uploads, a paid API or new settings ticks.
+- Wiki data is fetched asynchronously with a timeout, size limit and cooldown.
+  The primary monster infobox supplies exact variant stats, defensive bonuses
+  and explicit elemental weaknesses. Missing fields are left unknown rather
+  than inferred. Structured locations are options, not proof of assignment-area
+  access, and do not provide an automatic route. **Open Wiki page** provides
+  detailed travel and equipment guidance. No prayer/tile/attack advice is added.
+- Source credit: [OSRS Wiki contributors](https://oldschool.runescape.wiki/),
+  with the fetched revision shown in the panel. See the Wiki's
+  [copyright policy](https://oldschool.runescape.wiki/w/RuneScape:Copyright_policy).
+  No Wiki text is bundled in the plugin. The gear catalogue is our site's own
+  static data, not code from the separately licensed Wiki DPS calculator.
+- Stop, task completion/change, logout and character/profile changes clear
+  local private bank data and highlights and cancel/discard old lookups.
+  Plugin shutdown removes the overlay and rejects queued old sidebar actions.
+
+Owner test required: launch a development client (`./gradlew run`; follow
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts)
+to log in). With a real assignment, expand Slayer preparation, Start task,
+open the bank, inspect the loadout and enable highlights. Withdraw selected
+gear and verify it does not keep choosing replacement weapons. Test a style
+change, missing protective equipment and a monster without a reviewed profile.
+Load Wiki info, check the exact variant/weakness/location and compare with its
+source page. Stop, complete/change the task and switch characters/profiles;
+highlights and old private data must clear. Check a failed/cancelled lookup
+does not freeze the client or replace another character's information.
+
+All 138 automated companion tests pass with Java 11 compatibility. Automated
+tests are not in-game verification. The owner requested publication on October
+18, 2026 before testing this new panel; its real assignment/bank/overlay behavior
+remains unverified. Normal-client availability depends on Plugin Hub maintainer
+review. No website backend or iOS change is required for this plugin-only panel.
+
 ## Plugin Hub releases
 
 ### Pending Barrows loot regression check

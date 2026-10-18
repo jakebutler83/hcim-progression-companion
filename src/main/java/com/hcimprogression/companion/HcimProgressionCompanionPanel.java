@@ -92,6 +92,11 @@ public class HcimProgressionCompanionPanel extends PluginPanel
 
     HcimProgressionCompanionPanel(Consumer<String> linkHandler, Runnable accountSyncHandler, Runnable reminderPreviewHandler, JPanel routePanel, JPanel skillGoalPanel)
     {
+        this(linkHandler, accountSyncHandler, reminderPreviewHandler, routePanel, skillGoalPanel, null);
+    }
+
+    HcimProgressionCompanionPanel(Consumer<String> linkHandler, Runnable accountSyncHandler, Runnable reminderPreviewHandler, JPanel routePanel, JPanel skillGoalPanel, JPanel slayerPanel)
+    {
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
 
@@ -217,6 +222,10 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         progressionBody.add(createCollapsibleCard("RECENT COMPLETIONS", SUCCESS, recentCompletionsBody, false));
         content.add(createCollapsibleCard("IN-GAME DISPLAYS", GOLD, progressionBody, false));
         content.add(Box.createVerticalStrut(8));
+        if (slayerPanel != null) {
+            content.add(slayerPanel);
+            content.add(Box.createVerticalStrut(8));
+        }
         if (routePanel != null) {
             content.add(createCollapsibleCard("ROUTE HELPER", SUCCESS, routePanel, false));
             content.add(Box.createVerticalStrut(8));

@@ -106,6 +106,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Inject private ItemManager itemManager;
     @Inject private HiscoreClient hiscoreClient;
     @Inject private Gson gson;
+    @Inject private okhttp3.OkHttpClient httpClient;
     @Inject private EventBus eventBus;
     @Inject private OverlayManager overlayManager;
     @Inject private Notifier notifier;
@@ -114,6 +115,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private ProgressionOverlay progressionOverlay;
     private RoutineRouteHelper routeHelper;
     private SessionGoalHelper sessionGoals;
+    private SlayerPreparationHelper slayerPreparation;
+    private SlayerBankOverlay slayerBankOverlay;
     private volatile SettingsPresetController settingsPresets;
     private boolean packingDirty = true;
     private String packingCharacter = "";
@@ -224,6 +227,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         SkillGoalSync goalSync = new SkillGoalSync(config::skillGoalSyncEnabled,(name,token,api,goal,callback) ->
             syncService.syncSkillGoal(api,token,name,goal,(result,error) -> clientThread.invokeLater(() -> callback.accept(result,error))));
         sessionGoals = new SessionGoalHelper(client, clientThread, config, notifier,goalSync);
+        slayerPreparation = new SlayerPreparationHelper(client, clientThread, configManager, itemManager,
+            accountSnapshotService, SlayerBankPlanner.load(gson), new SlayerWikiService(httpClient, gson));
+        slayerBankOverlay = new SlayerBankOverlay(client, slayerPreparation);
+        overlayManager.add(slayerBankOverlay);
         progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client, routeHelper, sessionGoals);
         overlayManager.add(progressionOverlay);
         tickCounter = 0;
@@ -271,7 +278,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         lastClueRewardFingerprint = "";
         lastClueRewardCapturedAt = 0L;
         pendingBarrowsRewardTicks = 0;
-        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel(), sessionGoals.panel());
+        panel = new HcimProgressionCompanionPanel(this::linkCompanion, this::syncAccountNow, this::previewRoutineReminder, routeHelper.panel(), sessionGoals.panel(), slayerPreparation.panel());
         personalBestSync = new PersonalBestSync(config::personalBestSyncEnabled,
             (name, token, api, records, done) -> syncService.syncPersonalBests(api, token, name, records,
                 (count, error) -> clientThread.invokeLater(() -> done.accept(count, error))));
@@ -332,6 +339,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         routeHelper = null;
         if (sessionGoals != null) sessionGoals.reset();
         sessionGoals = null;
+        if (slayerPreparation != null) slayerPreparation.close();
+        slayerPreparation = null;
+        if (slayerBankOverlay != null) overlayManager.remove(slayerBankOverlay);
+        slayerBankOverlay = null;
         progressionFeedback.session("");
         if (progressionOverlay != null) overlayManager.remove(progressionOverlay);
         progressionOverlay = null;
@@ -830,6 +841,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onProfileChanged(ProfileChanged event)
     {
+        SlayerPreparationHelper helper = slayerPreparation;
+        if (helper != null) clientThread.invokeLater(() -> helper.reset("Profile changed. Select Start task again."));
         SettingsPresetController presets = settingsPresets;
         if (presets != null) presets.initialize();
     }
@@ -837,6 +850,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
     {
+        if (slayerPreparation != null) slayerPreparation.reset("Character changed. Select Start task again.");
         pendingBarrowsRewardTicks = 0;
         resetCollectionUnlocks();
         if (personalBestSync != null) personalBestSync.reset();
@@ -867,6 +881,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         if (isLoggedOutState(nextState)) routineReminderTracker.reset();
         if (isLoggedOutState(nextState) && routeHelper != null) routeHelper.reset();
         if (isLoggedOutState(nextState) && sessionGoals != null) sessionGoals.reset();
+        if (isLoggedOutState(nextState) && slayerPreparation != null) slayerPreparation.reset("Logged out. Local Slayer data cleared.");
         if (isLoggedOutState(nextState)) updateFeedbackPanel();
         boolean sessionStarted = nextState == GameState.LOGGED_IN && !accountSessionActive;
         if (sessionStarted)
@@ -1203,10 +1218,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
             beginClueRewardCapture("Clue Scroll");
         }
 
-        if (event.getContainerId() == InventoryID.BANK
-            && client.getTopLevelInterfaceId() == InterfaceID.BANKMAIN)
+        if (event.getContainerId() == InventoryID.BANK)
         {
-            capturePersonalBank(event.getItemContainer());
+            if (slayerPreparation != null) slayerPreparation.bankChanged(event.getItemContainer());
+            if (client.getTopLevelInterfaceId() == InterfaceID.BANKMAIN) capturePersonalBank(event.getItemContainer());
         }
 
         if (event.getContainerId() == InventoryID.INV_GROUP_TEMP
@@ -1246,6 +1261,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
         if (event.getGroupId() == InterfaceID.BANKMAIN)
         {
+            if (slayerPreparation != null) slayerPreparation.bankChanged(client.getItemContainer(InventoryID.BANK));
             capturePersonalBank(client.getItemContainer(InventoryID.BANK));
         }
 
@@ -1288,6 +1304,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         // Resolve the character before any sync/poll can use a previous link.
         updateActiveAccountLink(currentPlayerName());
         refreshFeedbackSession();
+        if (slayerPreparation != null) slayerPreparation.tick();
         handlePersonalBests(System.currentTimeMillis());
         handleCollectionUnlocks();
 
@@ -2332,6 +2349,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
         activePlayerKey = key;
+        if (slayerPreparation != null) slayerPreparation.reset("Character link changed. Select Start task again.");
         pendingBarrowsRewardTicks = 0;
         if (birdhouseTracker != null) birdhouseTracker.reset();
         if (farmRunTracker != null) farmRunTracker.reset();

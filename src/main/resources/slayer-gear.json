@@ -1,0 +1,2279 @@
+{
+  "reviewed": "2026-10-13",
+  "source": "Progression Path gear-planner.js (10.69.1)",
+  "aliases": {
+    "mystic hat (dark)": "mystic hat",
+    "mystic hat (light)": "mystic hat",
+    "mystic hat (dusk)": "mystic hat",
+    "mystic robe top (dark)": "mystic robe top",
+    "mystic robe top (light)": "mystic robe top",
+    "mystic robe top (dusk)": "mystic robe top",
+    "mystic robe bottom (dark)": "mystic robe bottom",
+    "mystic robe bottom (light)": "mystic robe bottom",
+    "mystic robe bottom (dusk)": "mystic robe bottom",
+    "mystic gloves (dark)": "mystic gloves",
+    "mystic gloves (light)": "mystic gloves",
+    "mystic gloves (dusk)": "mystic gloves",
+    "mystic boots (dark)": "mystic boots",
+    "mystic boots (light)": "mystic boots",
+    "mystic boots (dusk)": "mystic boots",
+    "black slayer helmet": "slayer helmet",
+    "black slayer helmet (i)": "slayer helmet (i)",
+    "green slayer helmet": "slayer helmet",
+    "green slayer helmet (i)": "slayer helmet (i)",
+    "red slayer helmet": "slayer helmet",
+    "red slayer helmet (i)": "slayer helmet (i)",
+    "purple slayer helmet": "slayer helmet",
+    "purple slayer helmet (i)": "slayer helmet (i)",
+    "turquoise slayer helmet": "slayer helmet",
+    "turquoise slayer helmet (i)": "slayer helmet (i)",
+    "hydra slayer helmet": "slayer helmet",
+    "hydra slayer helmet (i)": "slayer helmet (i)",
+    "twisted slayer helmet": "slayer helmet",
+    "twisted slayer helmet (i)": "slayer helmet (i)",
+    "tztok slayer helmet": "slayer helmet",
+    "tztok slayer helmet (i)": "slayer helmet (i)",
+    "vampyric slayer helmet": "slayer helmet",
+    "vampyric slayer helmet (i)": "slayer helmet (i)",
+    "tzkal slayer helmet": "slayer helmet",
+    "tzkal slayer helmet (i)": "slayer helmet (i)",
+    "araxyte slayer helmet": "slayer helmet",
+    "araxyte slayer helmet (i)": "slayer helmet (i)",
+    "guthix coif": "zamorak coif",
+    "guthix boots": "zamorak boots",
+    "guthix d'hide body": "black d'hide body",
+    "guthix chaps": "black d'hide chaps",
+    "saradomin coif": "zamorak coif",
+    "saradomin boots": "zamorak boots",
+    "saradomin d'hide body": "black d'hide body",
+    "saradomin chaps": "black d'hide chaps",
+    "zamorak coif": "zamorak coif",
+    "zamorak boots": "zamorak boots",
+    "zamorak d'hide body": "black d'hide body",
+    "zamorak chaps": "black d'hide chaps",
+    "armadyl coif": "zamorak coif",
+    "armadyl boots": "zamorak boots",
+    "armadyl d'hide body": "black d'hide body",
+    "armadyl chaps": "black d'hide chaps",
+    "ancient coif": "zamorak coif",
+    "ancient boots": "zamorak boots",
+    "ancient d'hide body": "black d'hide body",
+    "ancient chaps": "black d'hide chaps",
+    "bandos coif": "zamorak coif",
+    "bandos boots": "zamorak boots",
+    "bandos d'hide body": "black d'hide body",
+    "bandos chaps": "black d'hide chaps",
+    "imbued guthix cape": "imbued saradomin cape",
+    "guthix cape": "saradomin cape",
+    "imbued saradomin cape": "imbued saradomin cape",
+    "saradomin cape": "saradomin cape",
+    "imbued zamorak cape": "imbued saradomin cape",
+    "zamorak cape": "saradomin cape"
+  },
+  "items": {
+    "crystal body": {"name":"Crystal body","requirements":{"Defence":70,"Agility":50}},
+    "crystal legs": {"name":"Crystal legs","requirements":{"Defence":70,"Agility":50}},
+    "dragon arrow": {"name":"Dragon arrow","requirements":{"Ranged":60}},
+    "amethyst arrow": {"name":"Amethyst arrow","requirements":{"Ranged":50}},
+    "rune arrow": {"name":"Rune arrow","requirements":{"Ranged":40}},
+    "adamant arrow": {"name":"Adamant arrow","requirements":{"Ranged":30}},
+    "slayer helmet (i)": {
+      "name": "Slayer helmet (i)",
+      "requirements": {
+        "Defence": 10
+      }
+    },
+    "slayer helmet": {
+      "name": "Slayer helmet",
+      "requirements": {
+        "Defence": 10
+      }
+    },
+    "black mask (i)": {
+      "name": "Black mask (i)",
+      "requirements": {
+        "Defence": 10,
+        "Strength": 20
+      }
+    },
+    "black mask": {
+      "name": "Black mask",
+      "requirements": {
+        "Defence": 10,
+        "Strength": 20
+      }
+    },
+    "torva full helm": {
+      "name": "Torva full helm",
+      "requirements": {
+        "Defence": 80
+      }
+    },
+    "neitiznot faceguard": {
+      "name": "Neitiznot faceguard",
+      "requirements": {
+        "Defence": 70
+      }
+    },
+    "helm of neitiznot": {
+      "name": "Helm of neitiznot",
+      "requirements": {
+        "Defence": 55
+      }
+    },
+    "berserker helm": {
+      "name": "Berserker helm",
+      "requirements": {
+        "Defence": 45
+      }
+    },
+    "rune full helm": {
+      "name": "Rune full helm",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "infernal cape": {
+      "name": "Infernal cape",
+      "requirements": {}
+    },
+    "fire cape": {
+      "name": "Fire cape",
+      "requirements": {}
+    },
+    "ardougne cloak 4": {
+      "name": "Ardougne cloak 4",
+      "requirements": {}
+    },
+    "ardougne cloak 3": {
+      "name": "Ardougne cloak 3",
+      "requirements": {}
+    },
+    "ardougne cloak 2": {
+      "name": "Ardougne cloak 2",
+      "requirements": {}
+    },
+    "ardougne cloak 1": {
+      "name": "Ardougne cloak 1",
+      "requirements": {}
+    },
+    "obsidian cape": {
+      "name": "Obsidian cape",
+      "requirements": {}
+    },
+    "amulet of rancour": {
+      "name": "Amulet of rancour",
+      "requirements": {
+        "Hitpoints": 90
+      }
+    },
+    "amulet of torture": {
+      "name": "Amulet of torture",
+      "requirements": {
+        "Hitpoints": 75
+      }
+    },
+    "amulet of fury": {
+      "name": "Amulet of fury",
+      "requirements": {}
+    },
+    "amulet of strength": {
+      "name": "Amulet of strength",
+      "requirements": {}
+    },
+    "amulet of glory": {
+      "name": "Amulet of glory",
+      "requirements": {}
+    },
+    "rada's blessing 4": {
+      "name": "Rada's blessing 4",
+      "requirements": {}
+    },
+    "honourable blessing": {
+      "name": "Honourable blessing",
+      "requirements": {}
+    },
+    "holy blessing": {
+      "name": "Holy blessing",
+      "requirements": {}
+    },
+    "unholy blessing": {
+      "name": "Unholy blessing",
+      "requirements": {}
+    },
+    "war blessing": {
+      "name": "War blessing",
+      "requirements": {}
+    },
+    "peaceful blessing": {
+      "name": "Peaceful blessing",
+      "requirements": {}
+    },
+    "ancient blessing": {
+      "name": "Ancient blessing",
+      "requirements": {}
+    },
+    "rada's blessing 3": {
+      "name": "Rada's blessing 3",
+      "requirements": {}
+    },
+    "rada's blessing 2": {
+      "name": "Rada's blessing 2",
+      "requirements": {}
+    },
+    "rada's blessing 1": {
+      "name": "Rada's blessing 1",
+      "requirements": {}
+    },
+    "soulreaper axe": {
+      "name": "Soulreaper axe",
+      "requirements": {
+        "Attack": 80,
+        "Strength": 80
+      },
+      "twoHanded": true
+    },
+    "blade of saeldor": {
+      "name": "Blade of saeldor",
+      "requirements": {
+        "Attack": 80
+      }
+    },
+    "abyssal tentacle": {
+      "name": "Abyssal tentacle",
+      "requirements": {
+        "Attack": 75
+      }
+    },
+    "abyssal whip": {
+      "name": "Abyssal whip",
+      "requirements": {
+        "Attack": 70
+      }
+    },
+    "zombie axe": {
+      "name": "Zombie axe",
+      "requirements": {
+        "Attack": 65
+      }
+    },
+    "dragon scimitar": {
+      "name": "Dragon scimitar",
+      "requirements": {
+        "Attack": 60
+      }
+    },
+    "rune scimitar": {
+      "name": "Rune scimitar",
+      "requirements": {
+        "Attack": 40
+      }
+    },
+    "torva platebody": {
+      "name": "Torva platebody",
+      "requirements": {
+        "Defence": 80
+      }
+    },
+    "bandos chestplate": {
+      "name": "Bandos chestplate",
+      "requirements": {
+        "Defence": 65
+      }
+    },
+    "blood moon chestplate": {
+      "name": "Blood moon chestplate",
+      "requirements": {
+        "Defence": 65,
+        "Strength": 75
+      }
+    },
+    "fighter torso": {
+      "name": "Fighter torso",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "rune platebody": {
+      "name": "Rune platebody",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "rune chainbody": {
+      "name": "Rune chainbody",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "avernic defender": {
+      "name": "Avernic defender",
+      "requirements": {
+        "Attack": 70,
+        "Defence": 70
+      }
+    },
+    "dragon defender": {
+      "name": "Dragon defender",
+      "requirements": {
+        "Attack": 60,
+        "Defence": 60
+      }
+    },
+    "rune defender": {
+      "name": "Rune defender",
+      "requirements": {
+        "Attack": 40,
+        "Defence": 40
+      }
+    },
+    "toktz-ket-xil": {
+      "name": "Toktz-ket-xil",
+      "requirements": {
+        "Defence": 60
+      }
+    },
+    "rune kiteshield": {
+      "name": "Rune kiteshield",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "torva platelegs": {
+      "name": "Torva platelegs",
+      "requirements": {
+        "Defence": 80
+      }
+    },
+    "bandos tassets": {
+      "name": "Bandos tassets",
+      "requirements": {
+        "Defence": 65
+      }
+    },
+    "blood moon tassets": {
+      "name": "Blood moon tassets",
+      "requirements": {
+        "Defence": 65,
+        "Strength": 75
+      }
+    },
+    "verac's plateskirt": {
+      "name": "Verac's plateskirt",
+      "requirements": {
+        "Defence": 70
+      }
+    },
+    "dragon platelegs": {
+      "name": "Dragon platelegs",
+      "requirements": {
+        "Defence": 60
+      }
+    },
+    "rune platelegs": {
+      "name": "Rune platelegs",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "rune plateskirt": {
+      "name": "Rune plateskirt",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "ferocious gloves": {
+      "name": "Ferocious gloves",
+      "requirements": {
+        "Attack": 80,
+        "Defence": 80
+      }
+    },
+    "barrows gloves": {
+      "name": "Barrows gloves",
+      "requirements": {
+        "Defence": 41
+      }
+    },
+    "dragon gloves": {
+      "name": "Dragon gloves",
+      "requirements": {
+        "Defence": 34
+      }
+    },
+    "rune gloves": {
+      "name": "Rune gloves",
+      "requirements": {
+        "Defence": 34
+      }
+    },
+    "combat bracelet": {
+      "name": "Combat bracelet",
+      "requirements": {}
+    },
+    "avernic treads (max)": {
+      "name": "Avernic treads (max)",
+      "requirements": {
+        "Strength": 80,
+        "Defence": 80,
+        "Ranged": 80,
+        "Magic": 80
+      }
+    },
+    "primordial boots": {
+      "name": "Primordial boots",
+      "requirements": {
+        "Strength": 75,
+        "Defence": 75
+      }
+    },
+    "dragon boots": {
+      "name": "Dragon boots",
+      "requirements": {
+        "Defence": 60
+      }
+    },
+    "rune boots": {
+      "name": "Rune boots",
+      "requirements": {
+        "Defence": 40
+      }
+    },
+    "climbing boots": {
+      "name": "Climbing boots",
+      "requirements": {}
+    },
+    "ultor ring": {
+      "name": "Ultor ring",
+      "requirements": {}
+    },
+    "berserker ring (i)": {
+      "name": "Berserker ring (i)",
+      "requirements": {}
+    },
+    "berserker ring": {
+      "name": "Berserker ring",
+      "requirements": {}
+    },
+    "brimstone ring": {
+      "name": "Brimstone ring",
+      "requirements": {}
+    },
+    "ring of wealth": {
+      "name": "Ring of wealth",
+      "requirements": {}
+    },
+    "ring of recoil": {
+      "name": "Ring of recoil",
+      "requirements": {}
+    },
+    "osmumten's fang": {
+      "name": "Osmumten's fang",
+      "requirements": {
+        "Attack": 82
+      }
+    },
+    "ghrazi rapier": {
+      "name": "Ghrazi rapier",
+      "requirements": {
+        "Attack": 80
+      }
+    },
+    "zamorakian hasta": {
+      "name": "Zamorakian hasta",
+      "requirements": {
+        "Attack": 70
+      }
+    },
+    "dragon sword": {
+      "name": "Dragon sword",
+      "requirements": {
+        "Attack": 60
+      }
+    },
+    "rune sword": {
+      "name": "Rune sword",
+      "requirements": {
+        "Attack": 40
+      }
+    },
+    "inquisitor's mace": {
+      "name": "Inquisitor's mace",
+      "requirements": {
+        "Attack": 80
+      }
+    },
+    "abyssal bludgeon": {
+      "name": "Abyssal bludgeon",
+      "requirements": {
+        "Attack": 70,
+        "Strength": 70
+      },
+      "twoHanded": true
+    },
+    "dual macuahuitl": {
+      "name": "Dual macuahuitl",
+      "requirements": {
+        "Attack": 70,
+        "Strength": 75
+      },
+      "twoHanded": true
+    },
+    "sarachnis cudgel": {
+      "name": "Sarachnis cudgel",
+      "requirements": {
+        "Attack": 65
+      }
+    },
+    "dragon mace": {
+      "name": "Dragon mace",
+      "requirements": {
+        "Attack": 60
+      }
+    },
+    "rune mace": {
+      "name": "Rune mace",
+      "requirements": {
+        "Attack": 40
+      }
+    },
+    "inquisitor's hauberk": {
+      "name": "Inquisitor's hauberk",
+      "requirements": {
+        "Defence": 30,
+        "Strength": 70
+      }
+    },
+    "inquisitor's plateskirt": {
+      "name": "Inquisitor's plateskirt",
+      "requirements": {
+        "Defence": 30,
+        "Strength": 70
+      }
+    },
+    "masori mask (f)": {
+      "name": "Masori mask (f)",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 80
+      }
+    },
+    "masori mask": {
+      "name": "Masori mask",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 30
+      }
+    },
+    "armadyl helmet": {
+      "name": "Armadyl helmet",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 70
+      }
+    },
+    "zamorak coif": {
+      "name": "Zamorak coif",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 40
+      }
+    },
+    "snakeskin bandana": {
+      "name": "Snakeskin bandana",
+      "requirements": {
+        "Ranged": 30,
+        "Defence": 30
+      }
+    },
+    "coif": {
+      "name": "Coif",
+      "requirements": {
+        "Ranged": 20
+      }
+    },
+    "ava's assembler": {
+      "name": "Ava's assembler",
+      "requirements": {
+        "Ranged": 70
+      }
+    },
+    "ava's accumulator": {
+      "name": "Ava's accumulator",
+      "requirements": {
+        "Ranged": 50
+      }
+    },
+    "ava's attractor": {
+      "name": "Ava's attractor",
+      "requirements": {
+        "Ranged": 30
+      }
+    },
+    "necklace of anguish": {
+      "name": "Necklace of anguish",
+      "requirements": {
+        "Hitpoints": 75
+      }
+    },
+    "necklace of fangs": {
+      "name": "Necklace of fangs",
+      "requirements": {}
+    },
+    "amulet of power": {
+      "name": "Amulet of power",
+      "requirements": {}
+    },
+    "diamond dragon bolts (e)": {
+      "name": "Diamond dragon bolts (e)",
+      "requirements": {
+        "Ranged": 64
+      }
+    },
+    "diamond bolts (e)": {
+      "name": "Diamond bolts (e)",
+      "requirements": {
+        "Ranged": 61
+      }
+    },
+    "broad bolts": {
+      "name": "Broad bolts",
+      "requirements": {
+        "Ranged": 61,
+        "Slayer": 55
+      }
+    },
+    "adamant bolts": {
+      "name": "Adamant bolts",
+      "requirements": {
+        "Ranged": 46
+      }
+    },
+    "steel bolts": {
+      "name": "Steel bolts",
+      "requirements": {
+        "Ranged": 31
+      }
+    },
+    "twisted bow": {
+      "name": "Twisted bow",
+      "requirements": {
+        "Ranged": 85
+      },
+      "twoHanded": true,
+      "ammo": "arrow"
+    },
+    "bow of faerdhinen": {
+      "name": "Bow of faerdhinen",
+      "requirements": {
+        "Ranged": 80,
+        "Agility": 70
+      },
+      "twoHanded": true,
+      "ammo": "crystal",
+      "set": "crystal"
+    },
+    "toxic blowpipe": {
+      "name": "Toxic blowpipe",
+      "requirements": {
+        "Ranged": 75
+      },
+      "twoHanded": true,
+      "ammo": "internal"
+    },
+    "armadyl crossbow": {
+      "name": "Armadyl crossbow",
+      "requirements": {
+        "Ranged": 70
+      },
+      "ammo": "bolt"
+    },
+    "dragon crossbow": {
+      "name": "Dragon crossbow",
+      "requirements": {
+        "Ranged": 64
+      },
+      "ammo": "bolt"
+    },
+    "rune crossbow": {
+      "name": "Rune crossbow",
+      "requirements": {
+        "Ranged": 61
+      },
+      "ammo": "rune-bolt"
+    },
+    "magic shortbow (i)": {
+      "name": "Magic shortbow (i)",
+      "requirements": {
+        "Ranged": 50
+      },
+      "twoHanded": true,
+      "ammo": "rune-arrow"
+    },
+    "magic shortbow": {
+      "name": "Magic shortbow",
+      "requirements": {
+        "Ranged": 50
+      },
+      "twoHanded": true,
+      "ammo": "rune-arrow"
+    },
+    "maple shortbow": {
+      "name": "Maple shortbow",
+      "requirements": {
+        "Ranged": 30
+      },
+      "twoHanded": true,
+      "ammo": "adamant-arrow"
+    },
+    "masori body (f)": {
+      "name": "Masori body (f)",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 80
+      }
+    },
+    "masori body": {
+      "name": "Masori body",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 30
+      }
+    },
+    "armadyl chestplate": {
+      "name": "Armadyl chestplate",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 70
+      }
+    },
+    "karil's leathertop": {
+      "name": "Karil's leathertop",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 70
+      }
+    },
+    "black d'hide body": {
+      "name": "Black d'hide body",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 40
+      }
+    },
+    "blue d'hide body": {
+      "name": "Blue d'hide body",
+      "requirements": {
+        "Ranged": 50,
+        "Defence": 40
+      }
+    },
+    "green d'hide body": {
+      "name": "Green d'hide body",
+      "requirements": {
+        "Ranged": 40,
+        "Defence": 40
+      }
+    },
+    "twisted buckler": {
+      "name": "Twisted buckler",
+      "requirements": {
+        "Ranged": 75,
+        "Defence": 75
+      }
+    },
+    "dragonfire ward": {
+      "name": "Dragonfire ward",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 70
+      }
+    },
+    "book of law": {
+      "name": "Book of law",
+      "requirements": {}
+    },
+    "masori chaps (f)": {
+      "name": "Masori chaps (f)",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 80
+      }
+    },
+    "masori chaps": {
+      "name": "Masori chaps",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 30
+      }
+    },
+    "armadyl chainskirt": {
+      "name": "Armadyl chainskirt",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 70
+      }
+    },
+    "karil's leatherskirt": {
+      "name": "Karil's leatherskirt",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 70
+      }
+    },
+    "black d'hide chaps": {
+      "name": "Black d'hide chaps",
+      "requirements": {
+        "Ranged": 70
+      }
+    },
+    "blue d'hide chaps": {
+      "name": "Blue d'hide chaps",
+      "requirements": {
+        "Ranged": 50
+      }
+    },
+    "green d'hide chaps": {
+      "name": "Green d'hide chaps",
+      "requirements": {
+        "Ranged": 40
+      }
+    },
+    "zaryte vambraces": {
+      "name": "Zaryte vambraces",
+      "requirements": {
+        "Ranged": 80,
+        "Defence": 45
+      }
+    },
+    "black d'hide vambraces": {
+      "name": "Black d'hide vambraces",
+      "requirements": {
+        "Ranged": 70
+      }
+    },
+    "green d'hide vambraces": {
+      "name": "Green d'hide vambraces",
+      "requirements": {
+        "Ranged": 40
+      }
+    },
+    "pegasian boots": {
+      "name": "Pegasian boots",
+      "requirements": {
+        "Ranged": 75,
+        "Defence": 75
+      }
+    },
+    "zamorak boots": {
+      "name": "Zamorak boots",
+      "requirements": {
+        "Ranged": 70,
+        "Defence": 40
+      }
+    },
+    "snakeskin boots": {
+      "name": "Snakeskin boots",
+      "requirements": {
+        "Ranged": 30,
+        "Defence": 30
+      }
+    },
+    "venator ring": {
+      "name": "Venator ring",
+      "requirements": {}
+    },
+    "archers ring (i)": {
+      "name": "Archers ring (i)",
+      "requirements": {}
+    },
+    "archers ring": {
+      "name": "Archers ring",
+      "requirements": {}
+    },
+    "ancestral hat": {
+      "name": "Ancestral hat",
+      "requirements": {
+        "Magic": 75,
+        "Defence": 65
+      }
+    },
+    "virtus mask": {
+      "name": "Virtus mask",
+      "requirements": {
+        "Magic": 78,
+        "Defence": 75
+      }
+    },
+    "ahrim's hood": {
+      "name": "Ahrim's hood",
+      "requirements": {
+        "Magic": 70,
+        "Defence": 70
+      }
+    },
+    "mystic hat": {
+      "name": "Mystic hat",
+      "requirements": {
+        "Magic": 40,
+        "Defence": 20
+      }
+    },
+    "wizard hat": {
+      "name": "Wizard hat",
+      "requirements": {}
+    },
+    "imbued saradomin cape": {
+      "name": "Imbued saradomin cape",
+      "requirements": {
+        "Magic": 75
+      }
+    },
+    "saradomin cape": {
+      "name": "Saradomin cape",
+      "requirements": {
+        "Magic": 60
+      }
+    },
+    "occult necklace": {
+      "name": "Occult necklace",
+      "requirements": {
+        "Magic": 70
+      }
+    },
+    "amulet of magic": {
+      "name": "Amulet of magic",
+      "requirements": {}
+    },
+    "tumeken's shadow": {
+      "name": "Tumeken's shadow",
+      "requirements": {
+        "Magic": 85
+      },
+      "twoHanded": true
+    },
+    "sanguinesti staff": {
+      "name": "Sanguinesti staff",
+      "requirements": {
+        "Magic": 82
+      }
+    },
+    "trident of the swamp": {
+      "name": "Trident of the swamp",
+      "requirements": {
+        "Magic": 78
+      }
+    },
+    "trident of the seas": {
+      "name": "Trident of the seas",
+      "requirements": {
+        "Magic": 75
+      }
+    },
+    "warped sceptre": {
+      "name": "Warped sceptre",
+      "requirements": {
+        "Magic": 62
+      }
+    },
+    "iban's staff (u)": {
+      "name": "Iban's staff (u)",
+      "requirements": {
+        "Magic": 50,
+        "Attack": 50
+      }
+    },
+    "iban's staff": {
+      "name": "Iban's staff",
+      "requirements": {
+        "Magic": 50,
+        "Attack": 50
+      }
+    },
+    "ancient staff": {
+      "name": "Ancient staff",
+      "requirements": {
+        "Magic": 50,
+        "Attack": 50
+      }
+    },
+    "ancestral robe top": {
+      "name": "Ancestral robe top",
+      "requirements": {
+        "Magic": 75,
+        "Defence": 65
+      }
+    },
+    "virtus robe top": {
+      "name": "Virtus robe top",
+      "requirements": {
+        "Magic": 78,
+        "Defence": 75
+      }
+    },
+    "ahrim's robetop": {
+      "name": "Ahrim's robetop",
+      "requirements": {
+        "Magic": 70,
+        "Defence": 70
+      }
+    },
+    "blue moon chestplate": {
+      "name": "Blue moon chestplate",
+      "requirements": {
+        "Magic": 75,
+        "Defence": 50
+      }
+    },
+    "mystic robe top": {
+      "name": "Mystic robe top",
+      "requirements": {
+        "Magic": 40,
+        "Defence": 20
+      }
+    },
+    "wizard robe": {
+      "name": "Wizard robe",
+      "requirements": {}
+    },
+    "elidinis' ward (f)": {
+      "name": "Elidinis' ward (f)",
+      "requirements": {
+        "Magic": 80,
+        "Defence": 80,
+        "Prayer": 90
+      }
+    },
+    "elidinis' ward": {
+      "name": "Elidinis' ward",
+      "requirements": {
+        "Magic": 80,
+        "Defence": 80,
+        "Prayer": 80
+      }
+    },
+    "mage's book": {
+      "name": "Mage's book",
+      "requirements": {
+        "Magic": 60
+      }
+    },
+    "book of darkness": {
+      "name": "Book of darkness",
+      "requirements": {}
+    },
+    "ancestral robe bottom": {
+      "name": "Ancestral robe bottom",
+      "requirements": {
+        "Magic": 75,
+        "Defence": 65
+      }
+    },
+    "virtus robe bottom": {
+      "name": "Virtus robe bottom",
+      "requirements": {
+        "Magic": 78,
+        "Defence": 75
+      }
+    },
+    "ahrim's robeskirt": {
+      "name": "Ahrim's robeskirt",
+      "requirements": {
+        "Magic": 70,
+        "Defence": 70
+      }
+    },
+    "blue moon tassets": {
+      "name": "Blue moon tassets",
+      "requirements": {
+        "Magic": 75,
+        "Defence": 50
+      }
+    },
+    "mystic robe bottom": {
+      "name": "Mystic robe bottom",
+      "requirements": {
+        "Magic": 40,
+        "Defence": 20
+      }
+    },
+    "tormented bracelet": {
+      "name": "Tormented bracelet",
+      "requirements": {
+        "Hitpoints": 75
+      }
+    },
+    "mystic gloves": {
+      "name": "Mystic gloves",
+      "requirements": {
+        "Magic": 40,
+        "Defence": 20
+      }
+    },
+    "eternal boots": {
+      "name": "Eternal boots",
+      "requirements": {
+        "Magic": 75,
+        "Defence": 75
+      }
+    },
+    "infinity boots": {
+      "name": "Infinity boots",
+      "requirements": {
+        "Magic": 50,
+        "Defence": 25
+      }
+    },
+    "mystic boots": {
+      "name": "Mystic boots",
+      "requirements": {
+        "Magic": 40,
+        "Defence": 20
+      }
+    },
+    "magus ring": {
+      "name": "Magus ring",
+      "requirements": {}
+    },
+    "seers ring (i)": {
+      "name": "Seers ring (i)",
+      "requirements": {}
+    },
+    "seers ring": {
+      "name": "Seers ring",
+      "requirements": {}
+    },
+    "kodai wand": {
+      "name": "Kodai wand",
+      "requirements": {
+        "Magic": 80
+      }
+    },
+    "nightmare staff": {
+      "name": "Nightmare staff",
+      "requirements": {
+        "Magic": 65,
+        "Hitpoints": 50
+      }
+    },
+    "ancient sceptre": {
+      "name": "Ancient sceptre",
+      "requirements": {
+        "Magic": 70,
+        "Attack": 60
+      }
+    },
+    "blue moon spear": {
+      "name": "Blue moon spear",
+      "requirements": {
+        "Magic": 75,
+        "Attack": 70
+      },
+      "twoHanded": true
+    },
+    "master wand": {
+      "name": "Master wand",
+      "requirements": {
+        "Magic": 60
+      }
+    },
+    "facemask": {
+      "name": "Facemask",
+      "requirements": {
+        "Slayer": 10
+      }
+    },
+    "nose peg": {
+      "name": "Nose peg",
+      "requirements": {
+        "Slayer": 60
+      }
+    },
+    "v's shield": {
+      "name": "V's shield",
+      "requirements": {
+        "Defence": 40,
+        "Slayer": 60
+      }
+    },
+    "mirror shield": {
+      "name": "Mirror shield",
+      "requirements": {
+        "Defence": 20,
+        "Slayer": 25
+      }
+    },
+    "boots of brimstone": {
+      "name": "Boots of brimstone",
+      "requirements": {
+        "Defence": 44,
+        "Slayer": 44,
+        "Ranged": 70
+      }
+    },
+    "granite boots": {
+      "name": "Granite boots",
+      "requirements": {
+        "Defence": 50,
+        "Strength": 50
+      }
+    },
+    "boots of stone": {
+      "name": "Boots of stone",
+      "requirements": {
+        "Slayer": 40
+      }
+    },
+    "dragon hunter lance": {
+      "name": "Dragon hunter lance",
+      "requirements": {
+        "Attack": 78
+      }
+    },
+    "dragonfire shield": {
+      "name": "Dragonfire shield",
+      "requirements": {
+        "Defence": 75
+      }
+    },
+    "anti-dragon shield": {
+      "name": "Anti-dragon shield",
+      "requirements": {}
+    },
+    "dragon hunter crossbow": {
+      "name": "Dragon hunter crossbow",
+      "requirements": {
+        "Ranged": 70
+      },
+      "ammo": "bolt"
+    }
+  },
+  "profiles": {
+    "generic": {
+      "melee": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "black mask (i)",
+            "black mask",
+            "torva full helm",
+            "neitiznot faceguard",
+            "helm of neitiznot",
+            "berserker helm",
+            "rune full helm"
+          ],
+          "cape": [
+            "infernal cape",
+            "fire cape",
+            "ardougne cloak 4",
+            "ardougne cloak 3",
+            "ardougne cloak 2",
+            "ardougne cloak 1",
+            "obsidian cape"
+          ],
+          "neck": [
+            "amulet of rancour",
+            "amulet of torture",
+            "amulet of fury",
+            "amulet of strength",
+            "amulet of glory"
+          ],
+          "ammo": [
+            "rada's blessing 4",
+            "honourable blessing",
+            "holy blessing",
+            "unholy blessing",
+            "war blessing",
+            "peaceful blessing",
+            "ancient blessing",
+            "rada's blessing 3",
+            "rada's blessing 2",
+            "rada's blessing 1"
+          ],
+          "weapon": [
+            "soulreaper axe",
+            "blade of saeldor",
+            "abyssal tentacle",
+            "abyssal whip",
+            "zombie axe",
+            "dragon scimitar",
+            "rune scimitar"
+          ],
+          "body": [
+            "torva platebody",
+            "bandos chestplate",
+            "blood moon chestplate",
+            "fighter torso",
+            "rune platebody",
+            "rune chainbody"
+          ],
+          "shield": [
+            "avernic defender",
+            "dragon defender",
+            "rune defender",
+            "toktz-ket-xil",
+            "rune kiteshield"
+          ],
+          "legs": [
+            "torva platelegs",
+            "bandos tassets",
+            "blood moon tassets",
+            "verac's plateskirt",
+            "dragon platelegs",
+            "rune platelegs",
+            "rune plateskirt"
+          ],
+          "hands": [
+            "ferocious gloves",
+            "barrows gloves",
+            "dragon gloves",
+            "rune gloves",
+            "combat bracelet"
+          ],
+          "feet": [
+            "avernic treads (max)",
+            "primordial boots",
+            "dragon boots",
+            "rune boots",
+            "climbing boots"
+          ],
+          "ring": [
+            "ultor ring",
+            "berserker ring (i)",
+            "berserker ring",
+            "brimstone ring",
+            "ring of wealth",
+            "ring of recoil"
+          ]
+        },
+        "protection": []
+      },
+      "stab": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "black mask (i)",
+            "black mask",
+            "torva full helm",
+            "neitiznot faceguard",
+            "helm of neitiznot",
+            "berserker helm",
+            "rune full helm"
+          ],
+          "cape": [
+            "infernal cape",
+            "fire cape",
+            "ardougne cloak 4",
+            "ardougne cloak 3",
+            "ardougne cloak 2",
+            "ardougne cloak 1",
+            "obsidian cape"
+          ],
+          "neck": [
+            "amulet of rancour",
+            "amulet of torture",
+            "amulet of fury",
+            "amulet of strength",
+            "amulet of glory"
+          ],
+          "ammo": [
+            "rada's blessing 4",
+            "honourable blessing",
+            "holy blessing",
+            "unholy blessing",
+            "war blessing",
+            "peaceful blessing",
+            "ancient blessing",
+            "rada's blessing 3",
+            "rada's blessing 2",
+            "rada's blessing 1"
+          ],
+          "weapon": [
+            "osmumten's fang",
+            "ghrazi rapier",
+            "zamorakian hasta",
+            "dragon sword",
+            "rune sword"
+          ],
+          "body": [
+            "torva platebody",
+            "bandos chestplate",
+            "blood moon chestplate",
+            "fighter torso",
+            "rune platebody",
+            "rune chainbody"
+          ],
+          "shield": [
+            "avernic defender",
+            "dragon defender",
+            "rune defender",
+            "toktz-ket-xil",
+            "rune kiteshield"
+          ],
+          "legs": [
+            "torva platelegs",
+            "bandos tassets",
+            "blood moon tassets",
+            "verac's plateskirt",
+            "dragon platelegs",
+            "rune platelegs",
+            "rune plateskirt"
+          ],
+          "hands": [
+            "ferocious gloves",
+            "barrows gloves",
+            "dragon gloves",
+            "rune gloves",
+            "combat bracelet"
+          ],
+          "feet": [
+            "avernic treads (max)",
+            "primordial boots",
+            "dragon boots",
+            "rune boots",
+            "climbing boots"
+          ],
+          "ring": [
+            "ultor ring",
+            "berserker ring (i)",
+            "berserker ring",
+            "brimstone ring",
+            "ring of wealth",
+            "ring of recoil"
+          ]
+        },
+        "protection": []
+      },
+      "crush": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "black mask (i)",
+            "black mask",
+            "torva full helm",
+            "neitiznot faceguard",
+            "helm of neitiznot",
+            "berserker helm",
+            "rune full helm"
+          ],
+          "cape": [
+            "infernal cape",
+            "fire cape",
+            "ardougne cloak 4",
+            "ardougne cloak 3",
+            "ardougne cloak 2",
+            "ardougne cloak 1",
+            "obsidian cape"
+          ],
+          "neck": [
+            "amulet of rancour",
+            "amulet of torture",
+            "amulet of fury",
+            "amulet of strength",
+            "amulet of glory"
+          ],
+          "ammo": [
+            "rada's blessing 4",
+            "honourable blessing",
+            "holy blessing",
+            "unholy blessing",
+            "war blessing",
+            "peaceful blessing",
+            "ancient blessing",
+            "rada's blessing 3",
+            "rada's blessing 2",
+            "rada's blessing 1"
+          ],
+          "weapon": [
+            "inquisitor's mace",
+            "abyssal bludgeon",
+            "dual macuahuitl",
+            "sarachnis cudgel",
+            "zombie axe",
+            "dragon mace",
+            "rune mace"
+          ],
+          "body": [
+            "inquisitor's hauberk",
+            "torva platebody",
+            "bandos chestplate",
+            "blood moon chestplate",
+            "fighter torso",
+            "rune platebody",
+            "rune chainbody"
+          ],
+          "shield": [
+            "avernic defender",
+            "dragon defender",
+            "rune defender",
+            "toktz-ket-xil",
+            "rune kiteshield"
+          ],
+          "legs": [
+            "inquisitor's plateskirt",
+            "torva platelegs",
+            "bandos tassets",
+            "blood moon tassets",
+            "verac's plateskirt",
+            "dragon platelegs",
+            "rune platelegs",
+            "rune plateskirt"
+          ],
+          "hands": [
+            "ferocious gloves",
+            "barrows gloves",
+            "dragon gloves",
+            "rune gloves",
+            "combat bracelet"
+          ],
+          "feet": [
+            "avernic treads (max)",
+            "primordial boots",
+            "dragon boots",
+            "rune boots",
+            "climbing boots"
+          ],
+          "ring": [
+            "ultor ring",
+            "berserker ring (i)",
+            "berserker ring",
+            "brimstone ring",
+            "ring of wealth",
+            "ring of recoil"
+          ]
+        },
+        "protection": []
+      },
+      "ranged": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "black mask (i)",
+            "masori mask (f)",
+            "masori mask",
+            "armadyl helmet",
+            "zamorak coif",
+            "snakeskin bandana",
+            "coif"
+          ],
+          "cape": [
+            "ava's assembler",
+            "ava's accumulator",
+            "ava's attractor"
+          ],
+          "neck": [
+            "necklace of anguish",
+            "amulet of fury",
+            "amulet of glory",
+            "necklace of fangs",
+            "amulet of power"
+          ],
+          "ammo": [
+            "diamond dragon bolts (e)",
+            "diamond bolts (e)",
+            "broad bolts",
+            "adamant bolts",
+            "steel bolts"
+          ],
+          "weapon": [
+            "twisted bow",
+            "bow of faerdhinen",
+            "toxic blowpipe",
+            "armadyl crossbow",
+            "dragon crossbow",
+            "rune crossbow",
+            "magic shortbow (i)",
+            "magic shortbow",
+            "maple shortbow"
+          ],
+          "body": [
+            "masori body (f)",
+            "masori body",
+            "armadyl chestplate",
+            "karil's leathertop",
+            "black d'hide body",
+            "blue d'hide body",
+            "green d'hide body"
+          ],
+          "shield": [
+            "twisted buckler",
+            "dragonfire ward",
+            "book of law"
+          ],
+          "legs": [
+            "masori chaps (f)",
+            "masori chaps",
+            "armadyl chainskirt",
+            "karil's leatherskirt",
+            "black d'hide chaps",
+            "blue d'hide chaps",
+            "green d'hide chaps"
+          ],
+          "hands": [
+            "zaryte vambraces",
+            "barrows gloves",
+            "black d'hide vambraces",
+            "green d'hide vambraces"
+          ],
+          "feet": [
+            "avernic treads (max)",
+            "pegasian boots",
+            "zamorak boots",
+            "snakeskin boots"
+          ],
+          "ring": [
+            "venator ring",
+            "archers ring (i)",
+            "archers ring",
+            "brimstone ring",
+            "ring of wealth",
+            "ring of recoil"
+          ]
+        },
+        "protection": []
+      },
+      "magic": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "black mask (i)",
+            "ancestral hat",
+            "virtus mask",
+            "ahrim's hood",
+            "mystic hat",
+            "wizard hat"
+          ],
+          "cape": [
+            "imbued saradomin cape",
+            "saradomin cape"
+          ],
+          "neck": [
+            "occult necklace",
+            "amulet of fury",
+            "amulet of glory",
+            "amulet of magic"
+          ],
+          "ammo": [
+            "rada's blessing 4",
+            "honourable blessing",
+            "holy blessing",
+            "unholy blessing",
+            "war blessing",
+            "peaceful blessing",
+            "ancient blessing",
+            "rada's blessing 3",
+            "rada's blessing 2",
+            "rada's blessing 1"
+          ],
+          "weapon": [
+            "tumeken's shadow",
+            "sanguinesti staff",
+            "trident of the swamp",
+            "trident of the seas",
+            "warped sceptre",
+            "iban's staff (u)",
+            "iban's staff",
+            "ancient staff"
+          ],
+          "body": [
+            "ancestral robe top",
+            "virtus robe top",
+            "ahrim's robetop",
+            "blue moon chestplate",
+            "mystic robe top",
+            "wizard robe"
+          ],
+          "shield": [
+            "elidinis' ward (f)",
+            "elidinis' ward",
+            "mage's book",
+            "book of darkness"
+          ],
+          "legs": [
+            "ancestral robe bottom",
+            "virtus robe bottom",
+            "ahrim's robeskirt",
+            "blue moon tassets",
+            "mystic robe bottom"
+          ],
+          "hands": [
+            "tormented bracelet",
+            "barrows gloves",
+            "mystic gloves"
+          ],
+          "feet": [
+            "avernic treads (max)",
+            "eternal boots",
+            "infinity boots",
+            "mystic boots"
+          ],
+          "ring": [
+            "magus ring",
+            "seers ring (i)",
+            "brimstone ring",
+            "seers ring",
+            "ring of wealth",
+            "ring of recoil"
+          ]
+        },
+        "protection": []
+      },
+      "burst": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "black mask (i)",
+            "virtus mask",
+            "ancestral hat",
+            "ahrim's hood",
+            "mystic hat",
+            "wizard hat"
+          ],
+          "cape": [
+            "imbued saradomin cape",
+            "saradomin cape"
+          ],
+          "neck": [
+            "occult necklace",
+            "amulet of fury",
+            "amulet of glory",
+            "amulet of magic"
+          ],
+          "ammo": [
+            "rada's blessing 4",
+            "honourable blessing",
+            "holy blessing",
+            "unholy blessing",
+            "war blessing",
+            "peaceful blessing",
+            "ancient blessing",
+            "rada's blessing 3",
+            "rada's blessing 2",
+            "rada's blessing 1"
+          ],
+          "weapon": [
+            "kodai wand",
+            "nightmare staff",
+            "ancient sceptre",
+            "blue moon spear",
+            "master wand",
+            "ancient staff"
+          ],
+          "body": [
+            "virtus robe top",
+            "ancestral robe top",
+            "ahrim's robetop",
+            "blue moon chestplate",
+            "mystic robe top",
+            "wizard robe"
+          ],
+          "shield": [
+            "elidinis' ward (f)",
+            "elidinis' ward",
+            "mage's book",
+            "book of darkness"
+          ],
+          "legs": [
+            "virtus robe bottom",
+            "ancestral robe bottom",
+            "ahrim's robeskirt",
+            "blue moon tassets",
+            "mystic robe bottom"
+          ],
+          "hands": [
+            "tormented bracelet",
+            "barrows gloves",
+            "mystic gloves"
+          ],
+          "feet": [
+            "avernic treads (max)",
+            "eternal boots",
+            "infinity boots",
+            "mystic boots"
+          ],
+          "ring": [
+            "magus ring",
+            "seers ring (i)",
+            "brimstone ring",
+            "seers ring",
+            "ring of wealth",
+            "ring of recoil"
+          ]
+        },
+        "protection": []
+      }
+    },
+    "mask": {
+      "melee": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "facemask"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Facemask or Slayer helmet"
+          }
+        ]
+      },
+      "stab": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "facemask"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Facemask or Slayer helmet"
+          }
+        ]
+      },
+      "crush": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "facemask"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Facemask or Slayer helmet"
+          }
+        ]
+      },
+      "ranged": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "facemask"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Facemask or Slayer helmet"
+          }
+        ]
+      },
+      "magic": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "facemask"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Facemask or Slayer helmet"
+          }
+        ]
+      },
+      "burst": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "facemask"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Facemask or Slayer helmet"
+          }
+        ]
+      }
+    },
+    "spectre": {
+      "melee": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "nose peg"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Nose peg or Slayer helmet"
+          }
+        ]
+      },
+      "stab": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "nose peg"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Nose peg or Slayer helmet"
+          }
+        ]
+      },
+      "crush": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "nose peg"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Nose peg or Slayer helmet"
+          }
+        ]
+      },
+      "ranged": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "nose peg"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Nose peg or Slayer helmet"
+          }
+        ]
+      },
+      "magic": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "nose peg"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Nose peg or Slayer helmet"
+          }
+        ]
+      },
+      "burst": {
+        "slots": {
+          "head": [
+            "slayer helmet (i)",
+            "slayer helmet",
+            "nose peg"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "head",
+            "label": "Nose peg or Slayer helmet"
+          }
+        ]
+      }
+    },
+    "mirror": {
+      "melee": {
+        "slots": {
+          "weapon": [
+            "blade of saeldor",
+            "abyssal tentacle",
+            "abyssal whip",
+            "zombie axe",
+            "dragon scimitar",
+            "rune scimitar"
+          ],
+          "shield": [
+            "v's shield",
+            "mirror shield"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "shield",
+            "label": "Mirror shield or V’s shield"
+          }
+        ]
+      },
+      "stab": {
+        "slots": {
+          "shield": [
+            "v's shield",
+            "mirror shield"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "shield",
+            "label": "Mirror shield or V’s shield"
+          }
+        ]
+      },
+      "crush": {
+        "slots": {
+          "weapon": [
+            "inquisitor's mace",
+            "sarachnis cudgel",
+            "zombie axe",
+            "dragon mace",
+            "rune mace"
+          ],
+          "shield": [
+            "v's shield",
+            "mirror shield"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "shield",
+            "label": "Mirror shield or V’s shield"
+          }
+        ]
+      },
+      "ranged": {
+        "slots": {
+          "weapon": [
+            "armadyl crossbow",
+            "dragon crossbow",
+            "rune crossbow"
+          ],
+          "shield": [
+            "v's shield",
+            "mirror shield"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "shield",
+            "label": "Mirror shield or V’s shield"
+          }
+        ]
+      },
+      "magic": {
+        "slots": {
+          "weapon": [
+            "sanguinesti staff",
+            "trident of the swamp",
+            "trident of the seas",
+            "warped sceptre",
+            "iban's staff (u)",
+            "iban's staff",
+            "ancient staff"
+          ],
+          "shield": [
+            "v's shield",
+            "mirror shield"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "shield",
+            "label": "Mirror shield or V’s shield"
+          }
+        ]
+      },
+      "burst": {
+        "slots": {
+          "shield": [
+            "v's shield",
+            "mirror shield"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "shield",
+            "label": "Mirror shield or V’s shield"
+          }
+        ]
+      }
+    },
+    "heat": {
+      "melee": {
+        "slots": {
+          "feet": [
+            "boots of brimstone",
+            "granite boots",
+            "boots of stone"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "feet",
+            "label": "Heat-protective boots, unless Elite Kourend & Kebos is complete"
+          }
+        ]
+      },
+      "stab": {
+        "slots": {
+          "feet": [
+            "boots of brimstone",
+            "granite boots",
+            "boots of stone"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "feet",
+            "label": "Heat-protective boots, unless Elite Kourend & Kebos is complete"
+          }
+        ]
+      },
+      "crush": {
+        "slots": {
+          "feet": [
+            "boots of brimstone",
+            "granite boots",
+            "boots of stone"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "feet",
+            "label": "Heat-protective boots, unless Elite Kourend & Kebos is complete"
+          }
+        ]
+      },
+      "ranged": {
+        "slots": {
+          "feet": [
+            "boots of brimstone",
+            "granite boots",
+            "boots of stone"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "feet",
+            "label": "Heat-protective boots, unless Elite Kourend & Kebos is complete"
+          }
+        ]
+      },
+      "magic": {
+        "slots": {
+          "feet": [
+            "boots of brimstone",
+            "granite boots",
+            "boots of stone"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "feet",
+            "label": "Heat-protective boots, unless Elite Kourend & Kebos is complete"
+          }
+        ]
+      },
+      "burst": {
+        "slots": {
+          "feet": [
+            "boots of brimstone",
+            "granite boots",
+            "boots of stone"
+          ]
+        },
+        "protection": [
+          {
+            "slot": "feet",
+            "label": "Heat-protective boots, unless Elite Kourend & Kebos is complete"
+          }
+        ]
+      }
+    },
+    "dragon": {
+      "melee": {
+        "slots": {
+          "weapon": [
+            "dragon hunter lance",
+            "osmumten's fang",
+            "ghrazi rapier",
+            "zamorakian hasta",
+            "dragon sword",
+            "rune sword"
+          ],
+          "shield": [
+            "dragonfire shield",
+            "anti-dragon shield"
+          ]
+        },
+        "protection": []
+      },
+      "stab": {
+        "slots": {
+          "shield": [
+            "dragonfire shield",
+            "anti-dragon shield"
+          ]
+        },
+        "protection": []
+      },
+      "crush": {
+        "slots": {
+          "weapon": [
+            "dragon hunter lance",
+            "osmumten's fang",
+            "ghrazi rapier",
+            "zamorakian hasta",
+            "dragon sword",
+            "rune sword"
+          ],
+          "shield": [
+            "dragonfire shield",
+            "anti-dragon shield"
+          ]
+        },
+        "protection": []
+      },
+      "ranged": {
+        "slots": {
+          "weapon": [
+            "dragon hunter crossbow",
+            "dragon crossbow",
+            "rune crossbow"
+          ],
+          "shield": [
+            "dragonfire ward",
+            "dragonfire shield",
+            "anti-dragon shield"
+          ]
+        },
+        "protection": []
+      },
+      "magic": {
+        "slots": {
+          "shield": [
+            "dragonfire shield",
+            "anti-dragon shield"
+          ]
+        },
+        "protection": []
+      },
+      "burst": {
+        "slots": {
+          "shield": [
+            "dragonfire shield",
+            "anti-dragon shield"
+          ]
+        },
+        "protection": []
+      }
+    }
+  }
+}

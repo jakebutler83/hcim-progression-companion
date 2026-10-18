@@ -210,7 +210,7 @@ public class AccountSnapshotService
         }
     }
 
-    private SlayerSnapshot readSlayer(Client client)
+    SlayerSnapshot readSlayer(Client client)
     {
         int targetId = Math.max(0, client.getVarpValue(VarPlayerID.SLAYER_TARGET));
         int remaining = Math.max(0, client.getVarpValue(VarPlayerID.SLAYER_COUNT));

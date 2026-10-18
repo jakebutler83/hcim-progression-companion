@@ -38,7 +38,8 @@ public class SidebarControlsTest
             HcimProgressionCompanionConfig config=new HcimProgressionCompanionConfig(){};
             RoutineRouteHelper routes=new RoutineRouteHelper(null,config,null,null,null);
             SessionGoalHelper goals=new SessionGoalHelper(null,null,config,null);
-            for(JPanel root:new JPanel[]{routes.panel(),goals.panel()}) for(boolean expanded:new boolean[]{false,true}) {
+            SlayerPreparationHelper slayer=new SlayerPreparationHelper(null,null,null,null,null,null,null);
+            for(JPanel root:new JPanel[]{routes.panel(),goals.panel(),slayer.panel()}) for(boolean expanded:new boolean[]{false,true}) {
                 if(expanded)expandFolds(root);
                 for(int width:new int[]{170,190,210}) {
                     root.setSize(width,3000);layout(root);root.setSize(width,root.getPreferredSize().height);layout(root);
