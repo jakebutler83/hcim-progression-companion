@@ -113,6 +113,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
     private final ProgressionFeedback progressionFeedback = new ProgressionFeedback();
     private ProgressionOverlay progressionOverlay;
+    private QuestCompletionOverlay questCompletionOverlay;
     private RoutineRouteHelper routeHelper;
     private SessionGoalHelper sessionGoals;
     private SlayerPreparationHelper slayerPreparation;
@@ -236,6 +237,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         overlayManager.add(slayerTaskOverlay);
         progressionOverlay = new ProgressionOverlay(this, progressionFeedback, config, client, routeHelper, sessionGoals);
         overlayManager.add(progressionOverlay);
+        questCompletionOverlay = new QuestCompletionOverlay(this, client, progressionFeedback, config, sessionGoals);
+        overlayManager.add(questCompletionOverlay);
         tickCounter = 0;
         long now = System.currentTimeMillis();
         nextLiveSyncAt = now + randomJitter(30_000L);
@@ -351,6 +354,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
         progressionFeedback.session("");
         if (progressionOverlay != null) overlayManager.remove(progressionOverlay);
         progressionOverlay = null;
+        if (questCompletionOverlay != null) overlayManager.remove(questCompletionOverlay);
+        questCompletionOverlay = null;
         routineReminderTracker.reset();
         if (automaticAccountSyncTask != null)
         {

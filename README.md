@@ -61,6 +61,32 @@ profiles are excluded. If both game notifications are disabled, the plugin
 cannot identify an unseen unlock: enable one for future rewards. Opening old
 log pages imports ownership silently and never invents a new weekly reward.
 
+### Quest completion banner (release requested October 22, 2026)
+
+New quest completion notifications use an original gold-and-emerald banner at
+the top center of the viewport, with a parchment/check crest, soft fade and
+duration indicator. Long quest names wrap by measured pixel width. This is a
+separate movable overlay; it does not move skill goals, pinned tasks or Slayer
+tracking and does not replace or suppress the game's own interfaces.
+
+It uses the existing **Progression completion pop-ups**, **Quest completion
+pop-ups**, popup duration and pause controls. No extra opt-in, network request,
+sound or sharing setting is added. Diary, milestone and routine alerts keep
+their existing display. Completion capture, duplicate suppression and silent
+login baselines are unchanged.
+
+Automated headless state/drawing tests cover timing, filters, character changes,
+queued completions and long-name layout. In-game appearance still needs an
+owner test: complete a new quest with completion pop-ups enabled, check that
+only one custom banner appears and fades, and verify skill/Slayer overlays do
+not move. Confirm pause/disabled alerts and logout do not replay it. Run the
+development client with `./gradlew run` and follow
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts)
+to log in. On October 22, 2026, the owner requested publication without an
+in-game test. All 198 automated tests pass, with one optional live-Wiki test
+skipped; that is not in-game verification. Normal-client availability depends
+on the Plugin Hub update being reviewed and merged.
+
 ### Pre-release beta testers
 
 Until the Plugin Hub submission is approved, testers can run the public source through RuneLite's development client. See [BETA_TESTING.md](BETA_TESTING.md) and double-click `Launch-Beta-Client.cmd` after completing the Jagex Account development setup. Never share `.runelite/credentials.properties`, passwords, device tokens, or one-time link codes.

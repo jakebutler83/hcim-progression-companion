@@ -22,6 +22,7 @@ final class ProgressionFeedback
     private boolean quests = true, diaries = true, milestones = true;
     private String popup = "";
     private String popupCategory = "";
+    private long popupStarted;
     private long popupUntil;
     private boolean routinePopup;
     private boolean muted;
@@ -142,13 +143,15 @@ final class ProgressionFeedback
         popup = next == null ? "" : next.text;
         popupCategory = next == null ? "" : next.category;
         routinePopup = next != null && next.routine;
+        popupStarted = now;
         popupUntil = now + Math.max(3, Math.min(20, seconds)) * 1000L;
         return popup;
     }
 
     synchronized View view(long now)
     {
-        return new View(now < goalUntil ? goal : null, now < popupUntil ? popup : "", routinePopup, popupCategory);
+        return new View(now < goalUntil ? goal : null, now < popupUntil ? popup : "", routinePopup, popupCategory,
+            popupStarted, popupUntil);
     }
 
     static String clean(String value)
@@ -187,13 +190,19 @@ final class ProgressionFeedback
         final String popup;
         final boolean routinePopup;
         final String popupCategory;
-        View(Goal goal, String popup, boolean routinePopup, String popupCategory)
+        final long popupStarted;
+        final long popupUntil;
+        View(Goal goal, String popup, boolean routinePopup, String popupCategory, long popupStarted, long popupUntil)
         {
             this.goal = goal;
             this.popup = popup;
             this.routinePopup = routinePopup;
             this.popupCategory = popupCategory;
+            this.popupStarted = popupStarted;
+            this.popupUntil = popupUntil;
         }
+
+        boolean questPopup() { return !routinePopup && "Quest".equals(popupCategory) && !popup.isEmpty(); }
     }
 
     private static final class Popup

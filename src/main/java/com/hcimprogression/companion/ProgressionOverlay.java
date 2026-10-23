@@ -39,7 +39,8 @@ final class ProgressionOverlay extends OverlayPanel
         if (client.getGameState() != GameState.LOGGED_IN) return null;
         ProgressionFeedback.View view = feedback.view(System.currentTimeMillis());
         boolean muted = skills != null && skills.muted(System.currentTimeMillis());
-        boolean popup = !muted && !view.popup.isEmpty() && (view.routinePopup ? config.routineRemindersEnabled() : config.progressionPopupsEnabled());
+        boolean popup = !muted && !view.questPopup() && !view.popup.isEmpty()
+            && (view.routinePopup ? config.routineRemindersEnabled() : config.progressionPopupsEnabled());
         boolean goal = config.pinnedGoalEnabled() && view.goal != null;
         RoutineRouteHelper.View route = routes == null ? null : routes.view();
         SessionGoalHelper.View skill = skills == null ? null : skills.view();
