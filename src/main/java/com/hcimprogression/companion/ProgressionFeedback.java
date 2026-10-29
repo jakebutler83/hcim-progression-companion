@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Queue;
 import java.util.Set;
 
 /** Bounded, session-scoped presentation state. No game or network work here. */
@@ -16,7 +15,9 @@ final class ProgressionFeedback
     private long generation;
     private boolean baseline;
     private final Set<String> seen = new LinkedHashSet<>();
-    private final Queue<Popup> pending = new ArrayDeque<>();
+    private final ArrayDeque<Popup> pending = new ArrayDeque<>();
+    private final Set<String> localQuests = new LinkedHashSet<>();
+    private final Set<String> announcedServerQuests = new LinkedHashSet<>();
     private final ArrayDeque<Recent> recent = new ArrayDeque<>();
     private long recentRevision;
     private boolean quests = true, diaries = true, milestones = true;
@@ -37,6 +38,8 @@ final class ProgressionFeedback
             generation++;
             baseline = false;
             seen.clear();
+            localQuests.clear();
+            announcedServerQuests.clear();
             pending.clear();
             recent.clear();
             recentRevision++;
@@ -70,15 +73,71 @@ final class ProgressionFeedback
             String title = clean(event.title);
             if (title.isEmpty() || !seen.add(event.id)) continue;
             if (seen.size() > 512) seen.remove(seen.iterator().next());
+            String category = category(event.id);
+            // A local quest already celebrated (or intentionally muted) must
+            // not replay when its normal, rate-limited website upload returns.
+            if ("Quest".equals(category) && localQuests.contains(QuestCompletionCapture.key(title))) continue;
             if (announce)
             {
-                String category = category(event.id);
-                recent.addFirst(new Recent(title, category, System.currentTimeMillis()));
-                if (recent.size() > 10) recent.removeLast();
-                recentRevision++;
+                if ("Quest".equals(category)) remember(announcedServerQuests, QuestCompletionCapture.key(title));
+                recent(title, category, System.currentTimeMillis());
                 if (!muted && enabled(category) && pending.size() < 8) pending.add(new Popup(title, false, category));
             }
         }
+    }
+
+    /** Proven local game event: no website baseline, upload or polling dependency. */
+    synchronized String localQuest(long revision, String title, boolean eligible, long now, int seconds)
+    {
+        if (!current(revision)) return "";
+        title = clean(title);
+        if (title.isEmpty()) return "";
+        String key = QuestCompletionCapture.key(title);
+        if (localQuests.contains(key)) return "";
+        remember(localQuests, key);
+        boolean alreadyAnnounced = announcedServerQuests.contains(key);
+        if (eligible && !alreadyAnnounced) recent(title, "Quest", now);
+        if (!eligible || muted || !quests) return "";
+
+        // Handle even the unusual server-first race without a second history
+        // entry: promote its pending banner, or keep its already-visible one.
+        boolean wasPending = pending.removeIf(value -> "Quest".equals(value.category)
+            && QuestCompletionCapture.key(value.text).equals(key));
+        if (alreadyAnnounced && !wasPending) return "";
+        Popup next = new Popup(title, false, "Quest");
+        if (!popup.isEmpty() && now < popupUntil)
+        {
+            if ("Quest".equals(popupCategory))
+            {
+                ArrayDeque<Popup> prioritized = new ArrayDeque<>();
+                while (!pending.isEmpty() && "Quest".equals(pending.peek().category)) prioritized.add(pending.poll());
+                prioritized.add(next);
+                prioritized.addAll(pending);
+                pending.clear();
+                pending.addAll(prioritized);
+                if (pending.size() > 8) pending.removeLast();
+                return "";
+            }
+            // Quest celebrations get immediate priority, but an interrupted
+            // routine/milestone resumes without a second desktop notification.
+            if (pending.size() >= 8) pending.removeLast();
+            pending.addFirst(new Popup(popup, routinePopup, popupCategory, false));
+        }
+        show(next, now, seconds);
+        return popup;
+    }
+
+    private static void remember(Set<String> values, String value)
+    {
+        values.add(value);
+        if (values.size() > 512) values.remove(values.iterator().next());
+    }
+
+    private void recent(String title, String category, long now)
+    {
+        recent.addFirst(new Recent(title, category, now));
+        if (recent.size() > 10) recent.removeLast();
+        recentRevision++;
     }
 
     /** Local presentation filters; changing them never replays or resets completion history. */
@@ -140,12 +199,17 @@ final class ProgressionFeedback
         if (muted) return "";
         if (now < popupUntil && !popup.isEmpty()) return "";
         Popup next = pending.poll();
+        show(next, now, seconds);
+        return next != null && next.notify ? popup : "";
+    }
+
+    private void show(Popup next, long now, int seconds)
+    {
         popup = next == null ? "" : next.text;
         popupCategory = next == null ? "" : next.category;
         routinePopup = next != null && next.routine;
         popupStarted = now;
         popupUntil = now + Math.max(3, Math.min(20, seconds)) * 1000L;
-        return popup;
     }
 
     synchronized View view(long now)
@@ -210,7 +274,10 @@ final class ProgressionFeedback
         final String text;
         final boolean routine;
         final String category;
-        Popup(String text, boolean routine, String category) { this.text = text; this.routine = routine; this.category = category; }
+        final boolean notify;
+        Popup(String text, boolean routine, String category) { this(text, routine, category, true); }
+        Popup(String text, boolean routine, String category, boolean notify)
+        { this.text = text; this.routine = routine; this.category = category; this.notify = notify; }
     }
 
     static final class Recent

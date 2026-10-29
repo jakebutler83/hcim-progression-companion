@@ -219,7 +219,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         reminderPreviewButton.addActionListener(event -> reminderPreviewHandler.run());
         progressionBody.add(reminderPreviewButton);
         progressionBody.add(Box.createVerticalStrut(5));
-        progressionBody.add(createHint("All displays are optional. Local routines use Time Tracking; no website connection is needed."));
+        progressionBody.add(createHint("All displays are optional. Quest alerts and Time Tracking routines work locally without a website connection. Enable quest completion chat messages in the game settings."));
         progressionBody.add(Box.createVerticalStrut(6));
         progressionBody.add(createHint("Mute quests, diaries or milestones under Advanced: helpers. Muted completions still appear below."));
         progressionBody.add(Box.createVerticalStrut(6));
@@ -278,7 +278,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
     public void showProgressionDisplays(boolean completions, boolean autoSync, boolean pinned,
         boolean routines, boolean loggedIn, String goalStatus)
     {
-        completionDisplayValue.setText(!completions ? "Off" : autoSync ? "On" : "Needs auto sync");
+        completionDisplayValue.setText(!completions ? "Off" : autoSync ? "On" : "Local quests");
         completionDisplayValue.setForeground(!completions ? MUTED : autoSync ? SUCCESS : WARNING);
         pinnedGoalValue.setText(pinned ? "On" : "Off");
         pinnedGoalValue.setForeground(pinned ? SUCCESS : MUTED);
@@ -294,7 +294,7 @@ public class HcimProgressionCompanionPanel extends PluginPanel
         recentCompletionsBody.add(createHint("Last 10 new completions this session. Clears on logout or character change; never uploaded."));
         if (recent.isEmpty())
         {
-            recentCompletionsBody.add(createHint("No new completions yet. Set Account tracking and In-game helpers to On; old achievements stay silent."));
+            recentCompletionsBody.add(createHint("No new completions yet. Enable In-game helpers for local quest alerts; other milestones need Account tracking too. Old achievements stay silent."));
         }
         for (ProgressionFeedback.Recent entry : recent.subList(0, Math.min(10, recent.size())))
         {

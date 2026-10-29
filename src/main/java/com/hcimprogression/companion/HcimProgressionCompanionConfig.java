@@ -182,7 +182,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "progressionPopupsEnabled",
         section = helpersSection,
         name = "Progression completion pop-ups",
-        description = "Shows newly completed quests, diary tiers, and supported milestones after an automatic game-event sync. Requires Automatic account snapshots. Login and manual refreshes stay silent.",
+        description = "Shows quests immediately from the game's completion chat message, without a website link. Enable quest completion chat messages in the game settings. Diary tiers and supported milestones still require Automatic account snapshots. Login and manual refreshes stay silent.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         position = 11
     )
@@ -268,7 +268,7 @@ public interface HcimProgressionCompanionConfig extends Config
         keyName = "questCompletionPopups",
         section = helpersSection,
         name = "Quest completion pop-ups",
-        description = "Local filter for Progression completion pop-ups. Muted quests still appear in Recent completions while the master option is enabled. Does not enable uploads.",
+        description = "Shows the local quest banner when the game sends its quest completion chat message. Muted quests still appear in Recent completions while the master option is enabled. No website link or upload is needed.",
         position = 16
     )
     default boolean questCompletionPopups() { return true; }

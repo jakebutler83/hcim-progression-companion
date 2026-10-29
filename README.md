@@ -87,6 +87,43 @@ in-game test. All 198 automated tests pass, with one optional live-Wiki test
 skipped; that is not in-game verification. Normal-client availability depends
 on the Plugin Hub update being reviewed and merged.
 
+### Immediate quest alerts (release requested October 28, 2026)
+
+The timing follow-up listens directly for the server's
+`Congratulations, you've completed a quest:` game message. It starts the
+existing banner in that event, not after a game tick, upload, Hiscores lookup
+or website response. It works for an unlinked character and with automatic
+snapshots off. Enable the game's quest completion chat messages, plus the
+existing **Progression completion pop-ups** and **Quest completion pop-ups**.
+No reward-screen or quest-journal inference is used when chat is disabled.
+
+The existing consent, debounce and upload cooldown still apply to website
+sync, independently of the banner. A later sync response cannot replay the
+same locally observed quest, even with a different event ID. Muted/paused
+completions stay silent, login baselines remain silent, and logout/character
+changes clear the local state. Only game-message/spam channels are accepted;
+player, clan, private and plugin-console messages cannot trigger a celebration.
+Quest titles come from the live game message, so the parser does not depend
+on a hardcoded list of current quest names.
+
+A new quest has priority over routine/milestone popups; an interrupted popup
+resumes afterward without repeating its desktop notification. Other queued
+quests display sequentially in arrival order. The alert queue and session
+history remain bounded, with existing duration, pause and notification opt-ins.
+The custom visual design and normal game interfaces are unchanged.
+
+Full headless suite: 211 passed, one optional live-Wiki test skipped, zero
+failures/errors. Tests cover immediate display before any server baseline,
+duplicate chat/server events, server-first races, queue priority/limits,
+timing, filters, character changes and historical-import silence. On October 28,
+the owner requested publication before an in-game check; behavior has not been
+verified in-game. Normal-client availability depends on Plugin Hub review and
+merge of this timing follow-up. Owner test: complete
+a new quest with the game's quest completion message enabled; confirm the
+banner appears at completion and does not repeat after a later sync. Also
+check pause/disabled alerts, logout and character switching. Launch using
+`./gradlew run` and follow the Jagex Account login guide linked above.
+
 ### Pre-release beta testers
 
 Until the Plugin Hub submission is approved, testers can run the public source through RuneLite's development client. See [BETA_TESTING.md](BETA_TESTING.md) and double-click `Launch-Beta-Client.cmd` after completing the Jagex Account development setup. Never share `.runelite/credentials.properties`, passwords, device tokens, or one-time link codes.

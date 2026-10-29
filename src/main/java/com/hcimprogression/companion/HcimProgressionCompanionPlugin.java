@@ -966,6 +966,21 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             return;
         }
+        String completedQuest = QuestCompletionCapture.chatName(event.getType(), message);
+        if (!completedQuest.isEmpty() && feedbackRunning && client.getGameState() == GameState.LOGGED_IN)
+        {
+            updateActiveAccountLink(currentPlayerName());
+            refreshFeedbackSession();
+            long now = System.currentTimeMillis();
+            progressionFeedback.muted(sessionGoals != null && sessionGoals.muted(now));
+            String popup = progressionFeedback.localQuest(feedbackRevision, completedQuest,
+                config.progressionPopupsEnabled(), now, config.progressionPopupSeconds());
+            notifyProgressionPopup(popup, progressionFeedback.view(now));
+            updateFeedbackPanel();
+            // Preserve existing upload consent/debounce/rate limits. The
+            // on-screen celebration does not wait for this background work.
+            requestAutomaticAccountSync();
+        }
         observeCollectionUnlock(CollectionUnlockSync.chatName(event.getType(), message));
         if (config.personalBestSyncEnabled() && (event.getType() == net.runelite.api.ChatMessageType.GAMEMESSAGE || event.getType() == net.runelite.api.ChatMessageType.SPAM)
             && message.replaceAll("<[^>]+>|@[^@]+@", "").startsWith("Speedrun duration: ")
@@ -2278,13 +2293,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         }
         String popup = progressionFeedback.tick(now, config.progressionPopupSeconds());
         ProgressionFeedback.View view = progressionFeedback.view(now);
-        boolean notify = view.routinePopup
-            ? config.routineRemindersEnabled() && config.routineDesktopNotifications()
-            : config.progressionPopupsEnabled() && config.progressionDesktopNotifications();
-        if (!popup.isEmpty() && notify)
-        {
-            notifier.notify("Progression Path: " + popup + (view.routinePopup ? "" : " — complete!"));
-        }
+        notifyProgressionPopup(popup, view);
         updateFeedbackPanel();
         if (!config.pinnedGoalEnabled() || !progressionFeedback.current(feedbackRevision)
             || deviceToken().isEmpty() || goalPollInFlight || now < nextGoalPollAt) return;
@@ -2318,6 +2327,17 @@ public class HcimProgressionCompanionPlugin extends Plugin
                 }
                 updateFeedbackPanel();
             }));
+    }
+
+    private void notifyProgressionPopup(String popup, ProgressionFeedback.View view)
+    {
+        boolean notify = view.routinePopup
+            ? config.routineRemindersEnabled() && config.routineDesktopNotifications()
+            : config.progressionPopupsEnabled() && config.progressionDesktopNotifications();
+        if (!popup.isEmpty() && notify)
+        {
+            notifier.notify("Progression Path: " + popup + (view.routinePopup ? "" : " — complete!"));
+        }
     }
 
     private void previewRoutineReminder()

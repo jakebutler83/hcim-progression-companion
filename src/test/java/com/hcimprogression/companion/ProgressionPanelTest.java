@@ -90,7 +90,7 @@ public class ProgressionPanelTest
             panel.showProgressionDisplays(true, false, true, false, true, "<img src='untrusted'> & goal");
             List<Component> values = components(panel);
             assertTrue(values.stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
-                .anyMatch(label -> "Needs auto sync".equals(label.getText())));
+                .anyMatch(label -> "Local quests".equals(label.getText())));
             assertTrue(values.stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast)
                 .anyMatch(label -> label.getText().contains("& goal") && !label.getText().contains("<img")));
             assertFalse(values.stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
