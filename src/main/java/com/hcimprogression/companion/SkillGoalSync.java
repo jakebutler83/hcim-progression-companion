@@ -38,8 +38,8 @@ final class SkillGoalSync
         if (!SavedSkillGoals.valid(saved)) return;
         current=saved.copy(); current.sequence++;
         if ("active".equals(current.status) && current.currentXp>=current.targetXp) current.status="completed";
-        // Keep the original website UUID. A stopped website goal stays stopped.
-        if (!"stopped".equals(current.status)) request();
+        // Terminal records are durable retries too; the server cannot resurrect them.
+        request();
     }
     void start(String skill,boolean level,int levelNumber,int xp,int target)
     {
@@ -50,14 +50,14 @@ final class SkillGoalSync
     }
     void progress(int xp,boolean completed)
     {
-        if (current == null || !"active".equals(current.status) || xp == current.currentXp) return;
+        if (current == null || !"active".equals(current.status) || xp == current.currentXp && !completed) return;
         if (xp < current.currentXp) { stop(); return; }
         current = current.copy(); current.currentXp = xp; current.sequence++;
-        if (completed) { current.status = "completed"; request(); }
+        if (completed || xp >= current.targetXp) { current.status = "completed"; request(); }
     }
     void stop()
     {
-        if (current == null || !"active".equals(current.status)) return;
+        if (current == null || "stopped".equals(current.status)) return;
         current = current.copy(); current.status = "stopped"; current.sequence++; enqueue();
     }
     void request()
@@ -78,6 +78,7 @@ final class SkillGoalSync
     {
         if (!enabled.getAsBoolean()) { pending.clear(); status = "Website sync off · goals stay local"; return; }
         if (name.isEmpty() || token.isEmpty()) return;
+        if (current != null && !"active".equals(current.status)) enqueue();
         if (current != null && "active".equals(current.status) && now >= nextProgressAt) { enqueue(); nextProgressAt = now + 120_000L; }
         if (busy || pending.isEmpty() || now < nextSendAt) return;
         Goal sending = pending.values().iterator().next().copy(); long revision = generation;

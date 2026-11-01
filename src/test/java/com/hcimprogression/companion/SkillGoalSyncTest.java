@@ -9,6 +9,44 @@ import static org.junit.Assert.*;
 
 public class SkillGoalSyncTest
 {
+    @Test public void completionAndDeletionSurviveLogoutBeforeTheUpload()
+    {
+        for(boolean complete:new boolean[]{false,true}) {
+            Harness h=new Harness(); h.sync.start("Mining",false,0,1000,2000);
+            h.sync.tick(0); h.accept(0,"active");
+            if(complete) h.sync.progress(2000,true); else h.sync.stop();
+            SkillGoalSync.Goal saved=h.sync.snapshot();
+            h.sync.reset(); h.sync.connection("HP Shooter","fake-token","fake-api");
+            h.sync.restore(saved); h.sync.tick(3000);
+            assertEquals(saved.id,h.sent.get(1).id);
+            assertEquals(complete?"completed":"stopped",h.sent.get(1).status);
+        }
+    }
+    @Test public void reachingTargetCannotRemainActiveEvenWhenCompletionFlagIsMissing()
+    {
+        Harness h=new Harness(); h.sync.start("Mining",false,0,1000,2000);
+        h.sync.progress(2000,false); h.sync.tick(0);
+        assertEquals("completed",h.sent.get(0).status);
+    }
+    @Test public void reEnablingSyncRetriesPendingTerminalState()
+    {
+        Harness h=new Harness(); h.sync.start("Mining",false,0,1000,2000);
+        h.sync.tick(0); h.accept(0,"active"); h.sync.stop();
+        h.enabled.set(false); h.sync.tick(3000); assertEquals(1,h.sent.size());
+        h.enabled.set(true); h.sync.tick(6000);
+        assertEquals("stopped",h.sent.get(1).status);
+        h.accept(1,"stopped"); h.sync.tick(130000); assertEquals(2,h.sent.size());
+    }
+    @Test public void clearingAnAlreadyCompletedGoalPersistsAHiddenStoppedRecord()
+    {
+        Harness h=new Harness(); h.sync.start("Mining",false,0,1000,2000);
+        h.sync.progress(2000,true); h.sync.tick(0); h.accept(0,"completed");
+        h.sync.stop(); SkillGoalSync.Goal cleared=h.sync.snapshot();
+        assertEquals("stopped",cleared.status);
+        h.sync.reset(); h.sync.connection("HP Shooter","fake-token","fake-api");
+        h.sync.restore(cleared); h.sync.tick(3000); h.accept(1,"completed");
+        assertEquals("stopped",h.sync.snapshot().status);
+    }
     private static final class Harness
     {
         final AtomicBoolean enabled = new AtomicBoolean(true);
@@ -67,11 +105,13 @@ public class SkillGoalSyncTest
         assertEquals(saved.sequence, saved.copy().sequence);
     }
 
-    @Test public void restoringAWebsiteStoppedGoalDoesNotResurrectItsUpload()
+    @Test public void restoringAStoppedGoalRetriesDeletionWithoutResurrectingIt()
     {
         Harness h=new Harness(); SkillGoalSync.Goal saved=SavedSkillGoalsTest.goal(); saved.status="stopped";
         h.sync.restore(saved); h.sync.progress(saved.currentXp+1,false); h.sync.tick(3000);
-        assertTrue(h.sent.isEmpty()); assertEquals("stopped",h.sync.snapshot().status);
+        assertEquals(1,h.sent.size()); assertEquals("stopped",h.sent.get(0).status);
+        h.accept(0,"stopped"); h.sync.tick(130000); assertEquals(1,h.sent.size());
+        assertEquals("stopped",h.sync.snapshot().status);
     }
 
     @Test public void lateRequestsFromBeforeLogoutCannotChangeTheRestoredGoal()

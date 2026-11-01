@@ -118,7 +118,14 @@ final class SessionGoalHelper
         });
         clear.addActionListener(event -> {
             String expected = session; long revision = generation;
-            clientThread.invokeLater(() -> { if (current(expected, revision)) { generation++; if (website != null) website.stop(); if(persistence!=null) persistence.clear(owner); saved=null; loaded=true; restorePending=syncRestorePending=false; goal.clear(); view = null; popupUntil = 0; publish(""); } });
+            clientThread.invokeLater(() -> { if (current(expected, revision)) {
+                generation++;
+                if (website != null) website.stop();
+                // Retain the stopped UUID so logout/network failure cannot lose deletion.
+                if (saved != null) { saved.status="stopped"; saved.sequence++; persist(); }
+                loaded=true; restorePending=syncRestorePending=false;
+                goal.clear(); view = null; popupUntil = 0; publish("");
+            } });
         });
         publish("");
     }
@@ -139,7 +146,11 @@ final class SessionGoalHelper
         if (!config.sessionSkillGoalsEnabled() && goal.skill() != null) { persist(); goal.clear(); view = null; popupUntil = 0; loaded=false; update = true; }
         if(config.sessionSkillGoalsEnabled() && persistence!=null && !owner.isEmpty() && !session.isEmpty())
         {
-            if(!loaded) { saved=persistence.load(owner); loaded=true; restorePending=saved!=null; }
+            if(!loaded) {
+                saved=persistence.load(owner); loaded=true;
+                restorePending=saved!=null && !"stopped".equals(saved.status);
+                syncRestorePending=saved!=null;
+            }
             if(restorePending) { restore(); update=true; }
         }
         if (config.sessionSummaryEnabled() && !session.isEmpty() && !summary.active()) { startSummary(); update = true; }
@@ -156,7 +167,7 @@ final class SessionGoalHelper
     {
         if(website==null) return;
         boolean changed=website.connection(name,token,api);
-        if((changed||syncRestorePending) && saved!=null && goal.skill()!=null && name.equals(session))
+        if((changed||syncRestorePending) && saved!=null && !restorePending && name.equals(session))
         { website.restore(saved); syncRestorePending=false; persist(); }
     }
 
@@ -211,7 +222,12 @@ final class SessionGoalHelper
         int previous = goal.gained();
         boolean completed = goal.update(changed, xp);
         if (website != null) { if (goal.skill() == null) website.stop(); else website.progress(xp,completed); }
-        if(goal.skill()==null) { if(persistence!=null) persistence.clear(owner); saved=null; }
+        if(goal.skill()==null) {
+            SkillGoalSync.Goal stopped=website==null?null:website.snapshot();
+            if(stopped!=null && "stopped".equals(stopped.status)) {
+                saved=stopped; if(persistence!=null) persistence.save(owner,saved);
+            } else { if(persistence!=null) persistence.clear(owner); saved=null; }
+        }
         else persist();
         if (completed)
         {

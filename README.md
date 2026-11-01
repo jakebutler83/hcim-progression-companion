@@ -453,7 +453,11 @@ records are ignored. No token or credential is stored in the goal record.
 Restoring checks live XP, keeps one-decimal progress, and does not replay old
 completion notifications or increment a fresh session summary. Website sync stays
 opt-in, reuses the original task ID, and never reactivates a website-stopped task.
-**Clear** removes the saved goal. Disable/re-enable hides/resumes it without
+**Clear** hides the saved goal and retains a credential-free stopped record so
+the website deletion can retry after logout or a network failure. Stopped records
+never restore the in-game overlay. Completed goals also retry their terminal
+website state after login; reaching target XP cannot be uploaded as active.
+Disable/re-enable hides/resumes the goal without
 deleting it. Session statistics and manual route runs still reset at logout;
 saved route setups and pinned website goals retain their existing behavior.
 
@@ -461,6 +465,12 @@ Goals created in older builds only existed in memory, so create the test goal
 once in this updated development client before testing logout/relogin. The owner
 confirmed that skill-goal restoration works. Other edge cases have automated
 coverage; a later release is still required.
+
+October 31 sync follow-up: deletion/completion retries, replacement-goal cleanup,
+and clearing an already-completed goal have automated regression coverage. The
+owner requested publishing before the new in-game completion/clear/relogin test;
+that manual verification remains pending. No new upload setting or default
+consent was introduced.
 
 ### Local follow-up: saved Slayer tasks (owner confirmed logout/relogin)
 
