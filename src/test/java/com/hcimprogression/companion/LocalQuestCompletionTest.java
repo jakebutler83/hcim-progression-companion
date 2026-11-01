@@ -39,6 +39,44 @@ public class LocalQuestCompletionTest
             assertEquals("", QuestCompletionCapture.chatName(ChatMessageType.GAMEMESSAGE, message));
     }
 
+    @Test public void stripsQuestMessageFormattingFromTheObservedArceuusCompletion()
+    {
+        String quest = "The Ascent of Arceuus";
+        assertEquals(quest, parse("@q_mes@" + quest));
+        assertEquals(quest, parse("<col=081190>@q_mes@" + quest + "</col>!"));
+        assertEquals("", parse("@q_mes@"));
+        assertEquals(QuestCompletionCapture.key(quest), QuestCompletionCapture.key("@q_mes@" + quest));
+        assertEquals("", QuestCompletionCapture.chatName(ChatMessageType.PUBLICCHAT,
+            "Congratulations, you've completed a quest: @q_mes@" + quest));
+    }
+
+    @Test public void formattedLocalQuestAndCleanServerReplyProduceOnlyOneBanner()
+    {
+        String quest = "The Ascent of Arceuus";
+        ProgressionFeedback state = new ProgressionFeedback();
+        long revision = state.session("one"); state.baseline(revision);
+        assertEquals(quest, state.localQuest(revision, parse("@q_mes@" + quest), true, 1000, 8));
+        assertEquals(quest, state.view(1001).popup);
+        assertEquals("", state.localQuest(revision, "@q_mes@" + quest, true, 2000, 8));
+        state.accept(revision, true, Collections.singletonList(event(quest)));
+        assertEquals(1, state.recent().size());
+        assertEquals(9000, state.view(2001).popupUntil);
+        assertEquals("", state.tick(9000));
+        assertEquals("", state.view(9001).popup);
+    }
+
+    @Test public void formattedServerFirstQuestAndLocalMessageShareTheSameTitleAndHistory()
+    {
+        String quest = "The Ascent of Arceuus";
+        ProgressionFeedback state = new ProgressionFeedback();
+        long revision = state.session("one"); state.baseline(revision);
+        state.accept(revision, true, Collections.singletonList(event("@q_mes@" + quest)));
+        assertEquals(quest, state.localQuest(revision, quest, true, 1000, 8));
+        assertEquals(1, state.recent().size());
+        assertEquals(quest, state.recent().get(0).title);
+        assertEquals("", state.tick(9000));
+    }
+
     @Test public void startsOnTheLocalEventWithoutATickLinkUploadOrWebsiteBaseline()
     {
         ProgressionFeedback state = new ProgressionFeedback();

@@ -15,7 +15,7 @@ final class QuestCompletionCapture
     {
         if (type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.SPAM) return "";
         if (message == null || message.length() > 512 || message.matches("(?s).*[\\p{Cntrl}].*")) return "";
-        String text = Text.removeTags(message).replace('\u00a0', ' ').trim();
+        String text = Text.removeTags(message.replace("@q_mes@", "")).replace('\u00a0', ' ').trim();
         if (!text.startsWith(PREFIX)) return "";
         String title = text.substring(PREFIX.length()).trim();
         if (title.endsWith(".") || title.endsWith("!")) title = title.substring(0, title.length() - 1).trim();
@@ -25,8 +25,15 @@ final class QuestCompletionCapture
 
     static String key(String title)
     {
-        return ProgressionFeedback.clean(title).replace('\u00a0', ' ').replace('\u2019', '\'')
+        return title(title).replace('\u00a0', ' ').replace('\u2019', '\'')
             .replace('\u2018', '\'').replace('\u2013', '-').replace('\u2014', '-')
             .replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Normalize the observed quest-message marker before display and deduplication.
+     * Not a source of completion evidence: chatName still checks type and prefix. */
+    static String title(String value)
+    {
+        return value == null ? "" : ProgressionFeedback.clean(Text.removeTags(value.replace("@q_mes@", "")));
     }
 }

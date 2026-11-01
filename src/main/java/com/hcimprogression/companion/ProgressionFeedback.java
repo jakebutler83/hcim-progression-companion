@@ -70,10 +70,10 @@ final class ProgressionFeedback
         {
             if (++count > 20) break;
             if (event == null || event.id == null || event.id.length() > 160) continue;
-            String title = clean(event.title);
+            String category = category(event.id);
+            String title = "Quest".equals(category) ? QuestCompletionCapture.title(event.title) : clean(event.title);
             if (title.isEmpty() || !seen.add(event.id)) continue;
             if (seen.size() > 512) seen.remove(seen.iterator().next());
-            String category = category(event.id);
             // A local quest already celebrated (or intentionally muted) must
             // not replay when its normal, rate-limited website upload returns.
             if ("Quest".equals(category) && localQuests.contains(QuestCompletionCapture.key(title))) continue;
@@ -90,7 +90,7 @@ final class ProgressionFeedback
     synchronized String localQuest(long revision, String title, boolean eligible, long now, int seconds)
     {
         if (!current(revision)) return "";
-        title = clean(title);
+        title = QuestCompletionCapture.title(title);
         if (title.isEmpty()) return "";
         String key = QuestCompletionCapture.key(title);
         if (localQuests.contains(key)) return "";
