@@ -202,7 +202,7 @@ final class SessionGoalHelper
 
     private boolean current(String expected, long revision)
     {
-        if (expected.isEmpty() || revision != generation || !expected.equals(session)
+        if (!PermanentWorldPolicy.allows(client) || expected.isEmpty() || revision != generation || !expected.equals(session)
             || client.getGameState() != GameState.LOGGED_IN
             || persistence!=null && (owner.isEmpty() || !owner.equals(persistence.owner()))
             || client.getLocalPlayer() == null || !expected.equals(client.getLocalPlayer().getName()))

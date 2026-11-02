@@ -28,6 +28,9 @@ public class SyncService {
     private static final long LINK_TIMEOUT_SECONDS = 20L;
     private final OkHttpClient httpClient;
     private final Gson gson;
+    private volatile boolean trackingWorldAllowed = true;
+
+    void trackingWorldAllowed(boolean allowed) { trackingWorldAllowed = allowed; }
 
     @Inject
     public SyncService(OkHttpClient httpClient, Gson gson) {
@@ -588,6 +591,7 @@ public class SyncService {
                 + "\"playerName\":\""
                 + escape(snapshot.getPlayerName())
                 + "\","
+                + "\"world\":" + snapshot.getWorld() + ",\"worldTypes\":" + gson.toJson(snapshot.getWorldTypes()) + ","
                 + "\"notificationSource\":\""
                 + normalizedNotificationSource
                 + "\","
@@ -858,6 +862,9 @@ public class SyncService {
             String functionName,
             String token,
             String json) {
+        if (!trackingWorldAllowed && !"companion-link-exchange".equals(functionName)
+            && !"companion-social-presence-offline".equals(functionName))
+            return CompletableFuture.failedFuture(new IllegalStateException(PermanentWorldPolicy.PAUSED));
         String base = normalizeBaseUrl(baseUrl);
         Request.Builder builder = new Request.Builder()
                 .url(base + "/" + functionName)

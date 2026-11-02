@@ -40,10 +40,13 @@ public class AccountSnapshotService
 
     public AccountSnapshot createSnapshot(Client client, CollectionLogCaptureService collectionLogCaptureService, BirdhouseTracker birdhouseTracker, FarmRunTracker farmRunTracker, ItemManager itemManager)
     {
+        if (!PermanentWorldPolicy.allows(client)) return null;
         Player player = client.getLocalPlayer();
         if (player == null) return null;
 
         AccountSnapshot snapshot = new AccountSnapshot();
+        snapshot.setWorld(client.getWorld());
+        for (net.runelite.api.WorldType type : client.getWorldType()) snapshot.getWorldTypes().add(type.name());
         snapshot.setPlayerName(player.getName());
         snapshot.setQuestPoints(Math.max(0, client.getVarpValue(VarPlayer.QUEST_POINTS)));
         snapshot.setMembershipDays(Math.max(0, client.getVarpValue(VarPlayer.MEMBERSHIP_DAYS)));

@@ -160,6 +160,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     private final SyncCooldown clanChangeCooldown = new SyncCooldown(CLAN_CHANGE_COOLDOWN_MILLIS);
     private volatile boolean clanEventsSyncInFlight;
     private volatile AccountSnapshot latestAccountSnapshot;
+    private boolean temporaryWorldPaused;
+    private final PermanentWorldPolicy.Gate worldGate = new PermanentWorldPolicy.Gate();
     private volatile String lastClanEventsFingerprint = "";
     private boolean clanEventsWidgetOpen;
     private GroupStorageSnapshot pendingGroupStorageSnapshot;
@@ -215,6 +217,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        worldGate.reset(); temporaryWorldPaused = false;
+        syncService.trackingWorldAllowed(false);
         settingsPresets = new SettingsPresetController(
             key -> configManager.getConfiguration(HcimProgressionCompanionConfig.GROUP, key),
             (key, value) -> configManager.setConfiguration(HcimProgressionCompanionConfig.GROUP, key, value),
@@ -504,6 +508,10 @@ public class HcimProgressionCompanionPlugin extends Plugin
         {
             try
             {
+                if (client.getGameState() == GameState.LOGGED_IN && !allowPermanentTracking()) {
+                    accountSyncInFlight = false;
+                    return;
+                }
                 refreshFeedbackSession();
                 final long syncFeedbackRevision = feedbackRevision;
                 if (client.getGameState() != GameState.LOGGED_IN && (!allowCachedSnapshot || latestAccountSnapshot == null))
@@ -881,6 +889,9 @@ public class HcimProgressionCompanionPlugin extends Plugin
     public void onGameStateChanged(GameStateChanged event)
     {
         GameState nextState = event.getGameState();
+        if (nextState == GameState.HOPPING) { worldGate.reset(); pauseTemporaryTracking(); return; }
+        if (isLoggedOutState(nextState)) worldGate.reset();
+        if (nextState == GameState.LOGGED_IN && !allowPermanentTracking()) return;
         if (isLoggedOutState(nextState))
         {
             pendingBarrowsRewardTicks = 0;
@@ -961,6 +972,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onChatMessage(ChatMessage event)
     {
+        if (!allowPermanentTracking()) return;
         String message = event.getMessage();
         if (message == null)
         {
@@ -1052,6 +1064,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onNpcLootReceived(NpcLootReceived event)
     {
+        if (!allowPermanentTracking()) return;
         if (!config.weeklyLootTrackingEnabled())
         {
             return;
@@ -1178,6 +1191,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onStatChanged(StatChanged event)
     {
+        if (!allowPermanentTracking()) return;
         socialPresenceService.updateSkillActivity(event.getSkill(), event.getXp(), System.currentTimeMillis());
         if (sessionGoals != null) sessionGoals.changed(event.getSkill(), event.getXp());
         if (slayerPreparation != null) slayerPreparation.experience(event.getSkill(), event.getXp());
@@ -1186,6 +1200,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onScriptPreFired(ScriptPreFired event)
     {
+        if (!allowPermanentTracking()) return;
         if (event.getScriptId() == ScriptID.NOTIFICATION_START) collectionPopupStarted = true;
         else if (event.getScriptId() == ScriptID.NOTIFICATION_DELAY && collectionPopupStarted)
         {
@@ -1198,6 +1213,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onScriptPostFired(ScriptPostFired event)
     {
+        if (!allowPermanentTracking()) return;
         if (event.getScriptId() != ScriptID.COLLECTION_DRAW_LIST)
         {
             return;
@@ -1205,6 +1221,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
 
         clientThread.invokeLater(() ->
         {
+            if (!allowPermanentTracking()) return;
             CollectionLogCaptureService.CaptureResult result =
                 collectionLogCaptureService.captureCurrentPage(client, itemManager);
             if (result != null && panel != null)
@@ -1230,6 +1247,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (!allowPermanentTracking()) return;
         if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) packingDirty = true;
         if (pendingBarrowsRewardTicks > 0 && event.getContainerId() == InventoryID.TRAIL_REWARDINV
             && client.getTopLevelInterfaceId() == InterfaceID.BARROWS_REWARD)
@@ -1268,6 +1286,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event)
     {
+        if (!allowPermanentTracking()) return;
         if (event.getGroupId() == InterfaceID.QUESTSCROLL_SPEEDRUN && config.personalBestSyncEnabled()) questPbReadTicks = 5;
         if (event.getGroupId() == InterfaceID.BARROWS_REWARD)
         {
@@ -1328,6 +1347,8 @@ public class HcimProgressionCompanionPlugin extends Plugin
             return;
         }
 
+        worldGate.observe(true, client.getWorldType(), true);
+        if (!allowPermanentTracking()) return;
         // Resolve the character before any sync/poll can use a previous link.
         updateActiveAccountLink(currentPlayerName());
         refreshFeedbackSession();
@@ -2248,8 +2269,47 @@ public class HcimProgressionCompanionPlugin extends Plugin
             .replaceAll("^_+|_+$", "");
     }
 
+    /** Client-thread barrier: no temporary XP, unlock, bank or goal state survives a hop. */
+    private boolean allowPermanentTracking()
+    {
+        if (!worldGate.observe(client.getGameState() == GameState.LOGGED_IN, client.getWorldType(), false))
+        { pauseTemporaryTracking(); return false; }
+        syncService.trackingWorldAllowed(true);
+        temporaryWorldPaused = false;
+        return true;
+    }
+
+    private void pauseTemporaryTracking()
+    {
+        syncService.trackingWorldAllowed(false);
+        if (temporaryWorldPaused) return;
+        temporaryWorldPaused = true;
+        latestAccountSnapshot = null;
+        accountSessionActive = false;
+        automaticAccountSyncDirty = automaticAccountSyncNotificationEligible = false;
+        automaticAccountSyncDebounceTicks = 0;
+        lastProgressFingerprint = lastSlayerFingerprint = "";
+        lastAutomaticAccountSyncAt = lastFarmRunSyncAt = 0;
+        pendingGroupStorageSnapshot = null; groupStorageDirty = false;
+        pendingPersonalBankSnapshot = null; personalBankDirty = false;
+        pendingBarrowsRewardTicks = pendingClueRewardTicks = 0; pendingClueRewardSource = "";
+        resetCollectionUnlocks();
+        collectionLogCaptureService.reset();
+        if (personalBestSync != null) personalBestSync.reset();
+        if (birdhouseTracker != null) birdhouseTracker.reset();
+        if (farmRunTracker != null) farmRunTracker.reset();
+        routineReminderTracker.reset(); progressionFeedback.session("");
+        if (sessionGoals != null) sessionGoals.reset();
+        if (routeHelper != null) routeHelper.reset();
+        if (slayerPreparation != null) slayerPreparation.reset(PermanentWorldPolicy.PAUSED);
+        if (panel != null) SwingUtilities.invokeLater(() -> {
+            if (panel != null) panel.showAccountSyncError(PermanentWorldPolicy.PAUSED);
+        });
+    }
+
     private void refreshFeedbackSession()
     {
+        if (client.getGameState() == GameState.LOGGED_IN && !allowPermanentTracking()) return;
         String packingName = currentPlayerName();
         if (!packingName.equals(packingCharacter)) { packingCharacter = packingName; packingDirty = true; }
         if (sessionGoals != null) sessionGoals.session(packingName);

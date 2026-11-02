@@ -37,6 +37,7 @@ final class SavedSkillGoals
     }
     static String owner(Client client,ConfigManager config)
     {
+        if (!PermanentWorldPolicy.allows(client)) return "";
         if (client.getGameState()!=GameState.LOGGED_IN || client.getLocalPlayer()==null || config.getProfile()==null) return "";
         long hash=client.getAccountHash(); String profile=config.getRSProfileKey();
         RuneScapeProfileType type=RuneScapeProfileType.getCurrent(client);

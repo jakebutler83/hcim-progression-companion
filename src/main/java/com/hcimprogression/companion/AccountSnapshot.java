@@ -8,6 +8,8 @@ import java.util.Map;
 public class AccountSnapshot
 {
     private String playerName;
+    private int world;
+    private final List<String> worldTypes = new ArrayList<>();
     private int questPoints;
     private int membershipDays;
     private final Map<String, SkillSnapshot> skills = new LinkedHashMap<>();
@@ -33,6 +35,9 @@ public class AccountSnapshot
     private TcgCollectionSnapshot tcg;
 
     public String getPlayerName() { return playerName; }
+    public int getWorld() { return world; }
+    public void setWorld(int world) { this.world = world; }
+    public List<String> getWorldTypes() { return worldTypes; }
     public void setPlayerName(String playerName) { this.playerName = playerName; }
     public int getQuestPoints() { return questPoints; }
     public void setQuestPoints(int questPoints) { this.questPoints = questPoints; }

@@ -442,6 +442,19 @@ Plugin Hub submission until the owner confirms the in-game behavior.
 
 ### Local follow-up: saved skill goals (owner confirmed logout/relogin)
 
+November 2 world-safety patch (in-game verification pending): permanent
+account tracking pauses on PvP Arena, beta/no-save/tournament, LMS, quest
+speedrunning, seasonal and Deadman worlds. Regular PvP/high-risk worlds remain
+supported. World hops discard pending snapshots/captures, and temporary XP is
+not applied to saved skill or Slayer goals. A transport barrier rejects queued
+uploads while paused; normal-world account syncs include world context. This
+prevents future contamination; it does not automatically repair earlier saves.
+Separate-mode tracking is intentionally unavailable until separately scoped.
+After login/world hopping, tracking waits for two normal-world game ticks before
+restoring saved goals or accepting XP packets. The owner requested publication
+and a separately scoped, backed-up repair of the reported affected character;
+this does not claim an in-game world-hop regression test has been performed.
+
 Skill goals are no longer discarded on logout. The goal's original XP baseline,
 target, latest progress and existing website goal ID/sequence are saved through
 RuneLite's cached per-RuneScape-profile settings. Records are additionally scoped
