@@ -19,7 +19,7 @@ final class PermanentWorldPolicy
             switch (type)
             {
                 case PVP_ARENA: case BETA_WORLD: case NOSAVE_MODE: case TOURNAMENT_WORLD:
-                case LAST_MAN_STANDING: case QUEST_SPEEDRUNNING: case SEASONAL: case DEADMAN:
+                case LAST_MAN_STANDING: case QUEST_SPEEDRUNNING: case SEASONAL: case DEADMAN: case HARDCORE_MAIN:
                     return false;
                 default: break;
             }

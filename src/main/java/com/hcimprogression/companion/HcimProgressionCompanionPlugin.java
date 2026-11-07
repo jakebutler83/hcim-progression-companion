@@ -769,6 +769,7 @@ public class HcimProgressionCompanionPlugin extends Plugin
         putBossKillCount(snapshot, "yama", result.getSkill(HiscoreSkill.YAMA));
         putBossKillCount(snapshot, "doom-of-mokhaiotl", result.getSkill(HiscoreSkill.DOOM_OF_MOKHAIOTL));
         putBossKillCount(snapshot, "shellbane-gryphon", result.getSkill(HiscoreSkill.SHELLBANE_GRYPHON));
+        putBossKillCount(snapshot, "fractured-archive", result.getSkill(HiscoreSkill.THE_FRACTURED_ARCHIVE));
         putBossKillCountSum(snapshot, "cox",
             result.getSkill(HiscoreSkill.CHAMBERS_OF_XERIC),
             result.getSkill(HiscoreSkill.CHAMBERS_OF_XERIC_CHALLENGE_MODE));

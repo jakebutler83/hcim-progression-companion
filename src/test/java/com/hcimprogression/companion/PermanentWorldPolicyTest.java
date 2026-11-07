@@ -31,7 +31,7 @@ public class PermanentWorldPolicyTest
         {
             boolean blocked = EnumSet.of(WorldType.PVP_ARENA, WorldType.BETA_WORLD, WorldType.NOSAVE_MODE,
                 WorldType.TOURNAMENT_WORLD, WorldType.LAST_MAN_STANDING, WorldType.QUEST_SPEEDRUNNING,
-                WorldType.SEASONAL, WorldType.DEADMAN).contains(type);
+                WorldType.SEASONAL, WorldType.DEADMAN, WorldType.HARDCORE_MAIN).contains(type);
             assertEquals(type.name(), !blocked, PermanentWorldPolicy.allows(EnumSet.of(WorldType.MEMBERS,type)));
         }
         assertFalse(PermanentWorldPolicy.allows((java.util.Set<WorldType>)null));
